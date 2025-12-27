@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pickle as pkl
 
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Tuple, Dict, Optional
 
-def ctc_collapse_b(seq: Union[str, List[str]], blank_char="_") -> str:
+def ctc_collapse_b(seq: Union[str, List[str]], blank_char="^") -> str:
     """
     Collapses the raw output of ctc into the final word. For example, __H_EE_LL_LL_OOO__ will collapse to HELLO
     """
@@ -45,7 +46,12 @@ def forward(pred: np.ndarray, target: str) -> float:
     BLANK_IDX = 2
 
     # Put a blank between every char, start & end.
-    S = [BLANK_IDX] + [inverse_mapping[t] for t in target] + [BLANK_IDX]
+    S = [BLANK_IDX]
+    for char in target:
+        S.append(inverse_mapping[char])
+        S.append(BLANK_IDX)
+
+    # Init variables
     T = pred.shape[0] # The amount of time steps
     L = len(S) # The length of the target sequence (with blanks)
     alpha = np.zeros((T, L)) # Initialize alpha
@@ -83,18 +89,119 @@ def forward(pred: np.ndarray, target: str) -> float:
     plt.xlabel("Time Step (t)")
     plt.ylabel("Characters")
     plt.tight_layout()
-    output_path = "./outputs/pred_matrix.png"
+    output_path = "./outputs/ex5_pred_matrix.png"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
     plt.savefig(output_path)
 
     return float(total_prob)
 
+def force_alignment(pred: np.ndarray, target: str, file_prefix: str, mapping: Optional[Dict[int, str]] = None, allow_skipping_blanks=True, blank_symbol="^") -> float:
+    # Set the mapping
+    mapping = mapping or {0: 'a', 1: 'b', 2: '^'}
+    inverse_mapping = {v: k for k, v in mapping.items()}
+    BLANK_IDX = [k for k, v in mapping.items() if v == blank_symbol][0]
+
+    # Find most probable path
+    indices = np.argmax(pred, axis=1)
+    chars = "".join(mapping[i] for i in indices)
+    prob = float(np.prod(np.max(pred, axis=1)))
+
+    print(f"force_alignment most probable path: {chars}, with probability: {prob:.4f}")
+    print(f"force_alignment most probable path (collapsed): {ctc_collapse_b(chars)}, with probability: {prob:.4f}")
+
+    # Find most probable path to get aba. Do the exact same thing as before, but instead of summing all paths, we take the max
+
+    # Put a blank between every char, start & end.
+    S = [BLANK_IDX]
+    for char in target:
+        S.append(inverse_mapping[char])
+        S.append(BLANK_IDX)
+
+    # Init variables
+    T = pred.shape[0]  # The amount of time steps
+    L = len(S)  # The length of the target sequence (with blanks)
+    alpha = np.zeros((T, L))  # Initialize alpha
+    backtrace = np.zeros((T, L), dtype=int)
+
+    # Initialize alpha at the 0 with the actual 'pred' values
+    alpha[0, 0] = pred[0, S[0]] # probability to start with a blank value
+    alpha[0, 1] = pred[0, S[1]] # probability to start at the actual first char
+
+    # Dynamic Programing loop
+    for t in range(1, T):
+        for s in range(L):
+            # Probability to come from the exact same char as in the previous step
+            max_prob_option = alpha[t-1, s]
+            most_probable_char_idx = s
+
+            if s > 0:
+                # Probability to come from the previous char
+                if alpha[t-1, s-1] > max_prob_option:
+                    max_prob_option = alpha[t-1, s-1]
+                    most_probable_char_idx = s - 1
+
+            # Probability to jump directly from 2 chars before. This is only possible if this one is not blank, or the char at 2 positions before is not the same as the current one
+            if s >= 2 and S[s] != BLANK_IDX and S[s] != S[s-2]:
+                if alpha[t-1, s-2] > max_prob_option:
+                    max_prob_option = alpha[t-1, s-2]
+                    most_probable_char_idx = s - 2
+
+            # Update the probability to reach this position at time t. It's the max probability path to reach this point, multiplied by the probability to get to this point at this time
+            alpha[t, s] = max_prob_option * pred[t, S[s]]
+
+            # Update the backtrace to know where we came from
+            backtrace[t, s] = most_probable_char_idx
+
+    # We choose the most probably path at the end because both landing at the end on the last target char or blank is valid
+    total_prob = max(alpha[T-1, L-1], alpha[T-1, L-2])
+
+    # Backtrace what we got before the collapse
+    path_s = [L-1 if alpha[T-1, L-1] > alpha[T-1, L-2] else L-2]
+
+    for t in range(T-1, 0, -1):
+        path_s.append(backtrace[t, path_s[-1]])
+
+    # Reverse the list since we built it from end to start
+    path_s.reverse()
+
+    path_chars = "".join([mapping[S[s]] for s in path_s])
+
+    print(f"force_alignment path to '{target}': {path_chars}")
+    print(f"force_alignment collapsed path to '{target}': {ctc_collapse_b(path_chars)}")
+
+    # Plots
+    plt.figure(figsize=(10, 4))
+    sns.heatmap(pred.T, annot=True, fmt=".2f", cmap="YlGnBu",
+                yticklabels=[mapping[i] for i in range(3)])
+    plt.scatter(np.arange(T) + 0.5, indices + 0.5, color='red', marker='x', s=100, label='Greedy Path')
+    plt.title(f"Plot D: Pred Matrix & Greedy Path (Result: {chars})")
+    plt.xlabel("Time Step (t)")
+    plt.legend()
+    output_path = f"./outputs/{file_prefix}_pred_matrix.png"
+    plt.savefig(output_path)
+
+    # Plot E: Alpha Matrix + Backtraced Path
+    plt.figure(figsize=(10, 5))
+    # Using log scale for heatmap colors helps visibility as probs get tiny
+    sns.heatmap(alpha.T, annot=True, fmt=".4f", cmap="magma",
+                yticklabels=[f"{s}: {mapping[S[s]]}" for s in range(L)])
+    plt.plot(np.arange(T) + 0.5, np.array(path_s) + 0.5, color='cyan', marker='o', linewidth=2,
+             label=f'Path for "{target}"')
+    plt.title(f"Plot E: Backtrace Matrix & Forced Path for '{target}'")
+    plt.xlabel("Time Step (t)")
+    plt.ylabel("Expanded Target Index (s)")
+    plt.legend()
+    output_path = f"./outputs/{file_prefix}_backtrace.png"
+    plt.savefig(output_path)
+
+    return total_prob
+
 
 def test_ctc_collapse_b():
-    assert ctc_collapse_b("__H___EEEE_L_LLLL_OO___") == "HELLO", "ctc_collapse_b test FAILED"
-    assert ctc_collapse_b("H_E_LL_LL_OO") == "HELLO", "ctc_collapse_b test FAILED"
-    assert ctc_collapse_b("H__EEEE_LLLLLL_LLLL_O__") == "HELLO", "ctc_collapse_b test FAILED"
+    assert ctc_collapse_b("^^H^^^EEEE^L^LLLL^OO^^^") == "HELLO", "ctc_collapse_b test FAILED"
+    assert ctc_collapse_b("H^E^LL^LL^OO") == "HELLO", "ctc_collapse_b test FAILED"
+    assert ctc_collapse_b("H^^EEEE^LLLLLL^LLLL^O^^") == "HELLO", "ctc_collapse_b test FAILED"
 
     print("ctc_collapse_b test PASSED")
 
@@ -114,6 +221,38 @@ def test_forward():
 
     print(f"""Probability to get 'aba' = {forward(pred, target="aba"):.4f}""")
 
+
+def test_force_alignment():
+    pred = np.zeros(shape=(5, 3), dtype=np.float32)
+    pred[0][0] = 0.8
+    pred[0][1] = 0.2
+    pred[1][0] = 0.2
+    pred[1][1] = 0.8
+    pred[2][0] = 0.3
+    pred[2][1] = 0.7
+    pred[3][0] = 0.09
+    pred[3][1] = 0.8
+    pred[3][2] = 0.11
+    pred[4][2] = 1.00
+
+    print(f"""Probability to get 'aba' with forced alignment (max instead of sum) = {force_alignment(pred, target="aba", file_prefix="ex6"):.4f}""")
+
+
+def test_force_align_pkl_data():
+    """
+    Note when writing the summary: The output is the same as greedy decoding, but the probability is different. Need ot think why.
+    Also need to think how to fix the plots
+
+    """
+    data = pkl.load(open("./force_align.pkl", 'rb'))
+
+    print(f"""Probability to get '{data["gt_text"]}' with forced alignment (max instead of sum) = {force_alignment(pred=data["acoustic_model_out_probs"], 
+                                                                                                     target=data["gt_text"],
+                                                                                                     mapping=data["label_mapping"],
+                                                                                                     file_prefix="ex7"):.8f}""")
+
 if __name__ == "__main__":
-    test_ctc_collapse_b()
-    test_forward()
+    # test_ctc_collapse_b()
+    # test_forward()
+    # test_force_alignment()
+    test_force_align_pkl_data()
