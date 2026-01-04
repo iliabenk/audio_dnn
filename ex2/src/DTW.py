@@ -58,6 +58,48 @@ def calc_distance_matrix():
     return distances
 
 
+def calculate_accuracy(distances, threshold=6976):
+    speakers = ['Adam', 'Ido', 'Hagar', 'Inbar']
+
+    correct_digits = 0
+    rejected_as_noise = 0
+    misclassified = 0
+    total_digits = 40
+
+    correct_noise = 0
+    total_noise = 4
+
+    for s in range(4):
+        for true_digit in range(10):
+            dists = distances[s, :, true_digit]
+            predicted = np.argmin(dists)
+            min_dist = dists[predicted]
+
+            if min_dist >= threshold:
+                rejected_as_noise += 1
+            elif predicted == true_digit:
+                correct_digits += 1
+            else:
+                misclassified += 1
+
+        noise_dists = distances[s, :, 10]
+        if np.min(noise_dists) >= threshold:
+            correct_noise += 1
+
+    digit_accuracy = correct_digits / total_digits
+    noise_accuracy = correct_noise / total_noise
+    overall_accuracy = (correct_digits + correct_noise) / (total_digits + total_noise)
+
+    print(f"Threshold: {threshold}")
+    print(f"Digit classification: {correct_digits}/{total_digits} ({digit_accuracy:.1%})")
+    print(f"  Rejected as noise: {rejected_as_noise}")
+    print(f"  Misclassified: {misclassified}")
+    print(f"Noise rejection: {correct_noise}/{total_noise} ({noise_accuracy:.1%})")
+    print(f"Overall accuracy: {correct_digits + correct_noise}/{total_digits + total_noise} ({overall_accuracy:.1%})")
+
+    return overall_accuracy
+
+
 def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6976) -> None:
     titles = ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
     cols = np.arange(arr.shape[2])
@@ -87,4 +129,5 @@ def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6976) -> Non
 
 if __name__ == "__main__":
     distances = calc_distance_matrix()
+    calculate_accuracy(distances, threshold=6976)
     plot_4_matrices_heatmaps_with_col_argmin(distances)
