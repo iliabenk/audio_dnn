@@ -7,6 +7,7 @@ pandas
 
 # Plotting
 matplotlib
+seaborn
 
 # Audio processing / features
 librosa

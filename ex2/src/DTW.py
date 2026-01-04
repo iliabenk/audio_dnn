@@ -3,6 +3,9 @@ import numpy as np
 
 from mel_spectrogram import compute_mel_spectrogram
 
+REFERENCE_DIR = "Samples/Segmented/Gal/"
+VALIDATION_DIR = ["Samples/Segmented/Nirit/","Samples/Segmented/Ofir/",
+                       "Samples/Segmented/Roy/", "Samples/Segmented/Shir/"]
 
 def dtw(m1, m2, normalize=False):
     n, m = m1.shape[1], m2.shape[1]
@@ -11,36 +14,29 @@ def dtw(m1, m2, normalize=False):
         for j in range(distances.shape[1]):
             distances[i][j] = np.sqrt(np.sum((m1[:,i] - m2[:,j])**2))
 
-    dtw = np.zeros_like(distances)
-    # dtw_backtracking = np.zeros_like(distances)
+    dtw_matrix = np.zeros_like(distances)
 
-    dtw[0,0] = distances[0,0]
+    dtw_matrix[0,0] = distances[0,0]
     for i in range(1,distances.shape[0]):
-        dtw[i,0] = dtw[i-1,0] + distances[i,0]
-        # dtw_backtracking[i,0] = 2
+        dtw_matrix[i,0] = dtw_matrix[i-1,0] + distances[i,0]
+
     for j in range(1,distances.shape[1]):
-        dtw[0,j] = dtw[0,j-1] + distances[0,j]
-        # dtw_backtracking[0,j] = 1
+        dtw_matrix[0,j] = dtw_matrix[0,j-1] + distances[0,j]
 
-    for i in range(1, dtw.shape[0]):
-        for j in range(1, dtw.shape[1]):
-            a = dtw[i-1,j-1]
-            b = dtw[i,j-1]
-            c = dtw[i-1,j]
-            # dtw_backtracking[i,j] = np.argmin(np.array([a, b, c]))
-            dtw[i,j] = min(a, b, c) + distances[i,j]
+    for i in range(1, dtw_matrix.shape[0]):
+        for j in range(1, dtw_matrix.shape[1]):
+            dtw_matrix[i,j] = min(dtw_matrix[i-1,j-1], dtw_matrix[i,j-1], dtw_matrix[i-1,j]) + distances[i,j]
 
-    cost = dtw[n - 1][m - 1]
+    cost = dtw_matrix[n - 1][m - 1]
     if normalize:
         cost = cost / (n + m)
     return cost
 
 def calc_distance_matrix(dir_list):
-    reference_dir = "Samples/Segmented/Gal/"
     distances = np.zeros((len(dir_list),10,11))
     for speaker_index in range(len(dir_list)):
         for reference_digit in range(10):
-            reference_digit_path = reference_dir + f"segment_0{reference_digit}.wav"
+            reference_digit_path = REFERENCE_DIR + f"segment_0{reference_digit}.wav"
             refence_mel = compute_mel_spectrogram(reference_digit_path)
 
             for evaluated_digit in range(10):
@@ -57,50 +53,7 @@ def calc_distance_matrix(dir_list):
     return distances
 
 
-def calculate_accuracy(distances, thresh=6776):
-    speakers = ['Adam', 'Ido', 'Hagar', 'Inbar']
-
-    correct_digits = 0
-    rejected_as_noise = 0
-    misclassified = 0
-    total_digits = 40
-
-    correct_noise = 0
-    total_noise = 4
-
-    for s in range(4):
-        for true_digit in range(10):
-            dists = distances[s, :, true_digit]
-            predicted = np.argmin(dists)
-            min_dist = dists[predicted]
-
-            if min_dist >= thresh:
-                rejected_as_noise += 1
-            elif predicted == true_digit:
-                correct_digits += 1
-            else:
-                misclassified += 1
-
-        noise_dists = distances[s, :, 10]
-        if np.min(noise_dists) >= thresh:
-            correct_noise += 1
-
-    digit_accuracy = correct_digits / total_digits
-    noise_accuracy = correct_noise / total_noise
-    overall_accuracy = (correct_digits + correct_noise) / (total_digits + total_noise)
-
-    print(f"Threshold: {thresh}")
-    print(f"Digit classification: {correct_digits}/{total_digits} ({digit_accuracy:.1%})")
-    print(f"  Rejected as noise: {rejected_as_noise}")
-    print(f"  Misclassified: {misclassified}")
-    print(f"Noise rejection: {correct_noise}/{total_noise} ({noise_accuracy:.1%})")
-    print(f"Overall accuracy: {correct_digits + correct_noise}/{total_digits + total_noise} ({overall_accuracy:.1%})")
-
-    return overall_accuracy
-
-
-def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6776) -> None:
-    titles = ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
+def plot_distance_matrices(arr: np.ndarray, titles, thresh=6776) -> None:
     cols = np.arange(arr.shape[2])
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
@@ -123,14 +76,12 @@ def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6776) -> Non
 
     plt.show()
 
-def calculate_confusion_matrix(thresh=6776):
-    validation_dirs = ["Samples/Segmented/Nirit/","Samples/Segmented/Ofir/",
-                       "Samples/Segmented/Roy/", "Samples/Segmented/Shir/"]
-    distances = calc_distance_matrix(validation_dirs)
+def calculate_confusion_matrix(validation_dirs, thresh=6776):
+    confusion_distances = calc_distance_matrix(validation_dirs)
     confusion_matrix = np.zeros((11,11))
-    for i in range(distances.shape[0]):
+    for i in range(confusion_distances.shape[0]):
         for j in range(11):
-            scores = distances[i,:,j]
+            scores = confusion_distances[i,:,j]
             result = np.argmin(scores)
             if scores[result]<thresh:
                 confusion_matrix[j,result] += 1
@@ -138,38 +89,33 @@ def calculate_confusion_matrix(thresh=6776):
                 confusion_matrix[j,10] += 1
     return confusion_matrix
 
-def plot_confusion_matrix_from_threshold(thresh: float = 6976) -> np.ndarray:
-    """
-    Computes the confusion matrix using `calculate_confusion_matrix(thresh)`
-    and plots it as a heatmap.
-    Returns the (possibly unnormalized) confusion matrix.
-    """
-    cm_plot = calculate_confusion_matrix(thresh)  # should return a (11, 11) matrix
+def plot_confusion_matrix_from_threshold(val_dir, thresh = 6776):
 
+    conf_mat = calculate_confusion_matrix(val_dir, thresh)  # should return a (11, 11) matrix
 
     plt.figure(figsize=(7, 6))
-    im = plt.imshow(cm_plot, aspect="auto")
+    im = plt.imshow(conf_mat, aspect="auto")
     plt.title(f"Confusion Matrix (thresh={thresh})")
     plt.xlabel("Predicted label")
     plt.ylabel("True label")
     plt.colorbar(im)
 
     # annotate cells
-    for i in range(cm_plot.shape[0]):
-        for j in range(cm_plot.shape[1]):
-            txt = f"{int(cm_plot[i, j])}"
+    for i in range(conf_mat.shape[0]):
+        for j in range(conf_mat.shape[1]):
+            txt = f"{int(conf_mat[i, j])}"
             plt.text(j, i, txt, ha="center", va="center")
 
     plt.tight_layout()
     plt.show()
-    return cm_plot
 
 if __name__ == "__main__":
     train_dir = ["Samples/Segmented/Adam/",
      "Samples/Segmented/Ido/",
      "Samples/Segmented/Hagar/",
      "Samples/Segmented/Inbar/"]
-    # distances = calc_distance_matrix()
-    # calculate_accuracy(distances, threshold=6776)
-    # plot_4_matrices_heatmaps_with_col_argmin(distances)
-    plot_confusion_matrix_from_threshold(thresh=6776)
+    distances = calc_distance_matrix(train_dir)
+    plot_distance_matrices(distances,
+                           ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
+)
+    plot_confusion_matrix_from_threshold(VALIDATION_DIR, thresh=6776)

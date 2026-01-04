@@ -1,8 +1,12 @@
-import librosa
-import librosa.display
-import numpy as np
-import matplotlib.pyplot as plt
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Union
+
+import librosa
+import numpy as np
+import soundfile as sf
+import matplotlib.pyplot as plt
 
 SAMPLE_RATE = 16000
 N_FFT = int(0.025 * SAMPLE_RATE)  # 25ms window = 400 samples
@@ -11,6 +15,18 @@ N_MELS = 80
 
 SEGMENTED_DIR = Path("Samples/Segmented")
 PICTURES_DIR = Path("Pictures")
+
+def resample_audio_to_16khz(
+    input_path: Union[str, Path],
+    output_path: Union[str, Path],
+) -> None:
+
+    target_sr = 16_000
+
+    y, _sr = librosa.load(str(input_path), sr=target_sr, mono=True)
+
+    sf.write(str(output_path), y, target_sr)
+
 
 
 def compute_mel_spectrogram(audio_path):
