@@ -23,9 +23,9 @@ def dtw(m1, m2):
 
     for i in range(1, dtw.shape[0]):
         for j in range(1, dtw.shape[1]):
-            a = distances[i-1,j-1]
-            b = distances[i,j-1]
-            c = distances[i-1,j]
+            a = dtw[i-1,j-1]
+            b = dtw[i,j-1]
+            c = dtw[i-1,j]
             # dtw_backtracking[i,j] = np.argmin(np.array([a, b, c]))
             dtw[i,j] = min(a, b, c) + distances[i,j]
 
