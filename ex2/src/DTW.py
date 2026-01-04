@@ -75,7 +75,28 @@ def plot_distance_matrices(arr: np.ndarray, titles, thresh=6776) -> None:
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Value")
 
     plt.show()
+def plot_section_e(arr: np.ndarray, titles, thresh=6776) -> None:
 
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
+    axes = axes.ravel()
+
+    for i, ax in enumerate(axes):
+        res = np.zeros((10,11))
+        mat = arr[i]
+
+        argmin_rows = np.argmin(mat, axis=0)
+        for j, min_row in enumerate(argmin_rows):
+            if mat[min_row,j] < thresh:
+                res[min_row,j] = 1
+
+        im = ax.imshow(res, aspect="auto")
+        ax.set_title(titles[i])
+        ax.set_xlabel("Column index")
+        ax.set_ylabel("Row index")
+
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Value")
+
+    plt.show()
 def calculate_confusion_matrix(validation_dirs, thresh=6776):
     confusion_distances = calc_distance_matrix(validation_dirs)
     confusion_matrix = np.zeros((11,11))
@@ -136,6 +157,10 @@ if __name__ == "__main__":
      "Samples/Segmented/Inbar/"]
     distances = calc_distance_matrix(train_dir)
     plot_distance_matrices(distances,
-                           ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
+                           ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"],
+                           thresh=None
 )
+
+    plot_section_e(distances,
+    titles=["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"])
     plot_confusion_matrix_from_threshold(VALIDATION_DIR, thresh=6776)
