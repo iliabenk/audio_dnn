@@ -43,42 +43,43 @@ def calc_distance_matrix():
         for reference_digit in range(10):
             reference_digit_path = reference_dir + f"segment_0{reference_digit}.wav"
             refence_mel = compute_mel_spectrogram(reference_digit_path)
+
             for evaluated_digit in range(10):
                 evaluated_digit_path = validation_dirs[speaker_index] + f"segment_0{evaluated_digit}.wav"
                 evaluated_mel = compute_mel_spectrogram(evaluated_digit_path)
                 current_dtw = dtw(refence_mel, evaluated_mel)
                 distances[speaker_index,reference_digit,evaluated_digit] = current_dtw
 
-            evaluated_gorilla_path = reference_dir + f"segment_10.wav"
+            evaluated_gorilla_path = validation_dirs[speaker_index] + f"segment_10.wav"
             evaluated_mel = compute_mel_spectrogram(evaluated_gorilla_path)
             current_dtw = dtw(refence_mel, evaluated_mel)
             distances[speaker_index,reference_digit,10] = current_dtw
+
     return distances
 
 
 def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray) -> None:
-    arr = np.asarray(arr)
-
     titles = ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
-
     cols = np.arange(arr.shape[2])
 
-    for i in range(4):
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
+    axes = axes.ravel()
+    arr = arr < 7000
+    for i, ax in enumerate(axes):
         mat = arr[i]
         argmin_rows = np.argmin(mat, axis=0)
 
-        plt.figure()
-        im = plt.imshow(mat, aspect="auto")
-        plt.title(titles[i])
-        plt.xlabel("Column index")
-        plt.ylabel("Row index")
+        im = ax.imshow(mat, aspect="auto")
+        ax.set_title(titles[i])
+        ax.set_xlabel("Column index")
+        ax.set_ylabel("Row index")
 
-        # Red 'x' markers for argmin per column
-        plt.scatter(cols, argmin_rows, color="red", marker="x", s=80, linewidths=2)
+        ax.scatter(cols, argmin_rows, color="red", marker="x", s=80, linewidths=2)
 
-        plt.colorbar(im, label="Value")
-        plt.tight_layout()
-        plt.show()
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Value")
+
+    plt.show()
+
 
 
 

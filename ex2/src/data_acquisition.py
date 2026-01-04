@@ -80,4 +80,4 @@ def mel_spectogram(audio_path: str,
 
 
 if __name__ == "__main__":
-    batch_resample_dir_to_16khz("Samples/Raw/","Samples/Resampled")
+    resample_audio_to_16khz("Samples/Segmented/Gal/segment_04_r.wav", "Samples/Segmented/Gal/segment_04.wav")
