@@ -1,0 +1,63 @@
+# Assignment 2 - ASR
+
+Audio segmentation and ASR assignment for Advanced Topics in Audio Processing using Deep Learning.
+
+## Directory Structure
+
+```
+Samples/
+├── Raw/                 # Original unsegmented recordings (48kHz)
+│   ├── Adam.wav
+│   ├── Gal.wav
+│   └── ...
+└── Segmented/           # Segmented files (16kHz)
+    ├── Adam/
+    │   ├── segment_00.wav   # Rename to 0.wav, 1.wav, ..., 9.wav, random.wav
+    │   └── ...
+    └── ...
+```
+
+## Scripts
+
+### segment_audio.py
+Main segmentation script. Automatically segments raw audio files into individual words.
+
+```bash
+python3 segment_audio.py
+```
+
+### fix_segments.py
+Fix problematic speakers with custom parameters.
+
+### play_segments.py
+Play all segments to verify segmentation quality.
+
+```bash
+python3 play_segments.py
+```
+
+## Segmentation Parameters
+
+| Speaker | top_db | min_gap | extend_ms |
+|---------|--------|---------|-----------|
+| Gal     | 25     | 0.3s    | 50ms      |
+| Hagar   | 25     | 0.3s    | 50ms      |
+| Matz    | 25     | 0.3s    | 50ms      |
+| Ofir    | 25     | 0.3s    | 50ms      |
+| Adam    | 25     | 0.3s    | 150ms     |
+| Nirit   | 20     | 0.15s   | 50ms      |
+| Ido     | 25     | 0.1s    | 50ms      |
+| Shir    | 30     | 0.1s    | 50ms      |
+| Inbar   | 25     | 0.15s   | 150ms     |
+
+## Next Steps
+
+1. Listen to segments with `play_segments.py`
+2. Rename files: `segment_XX.wav` -> `0.wav`, `1.wav`, ..., `9.wav`, `random.wav`
+3. Organize speakers into:
+   - 1 class representative (reference DB)
+   - 4 training (2M, 2F)
+   - 4 evaluation (2M, 2F)
+4. Extract Mel Spectrograms (25ms window, 10ms hop, 80 filter banks)
+5. Implement DTW algorithm
+6. Implement CTC forward algorithm
