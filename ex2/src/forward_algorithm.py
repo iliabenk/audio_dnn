@@ -96,104 +96,119 @@ def forward(pred: np.ndarray, target: str) -> float:
 
     return float(total_prob)
 
-def force_alignment(pred: np.ndarray, target: str, file_prefix: str, mapping: Optional[Dict[int, str]] = None, allow_skipping_blanks=True, blank_symbol="^") -> float:
-    # Set the mapping
+
+def force_alignment(pred: np.ndarray, target: str, file_prefix: str,
+                    mapping: Optional[Dict[int, str]] = None,
+                    blank_symbol: str = "^",
+                    annot=True,
+                    fig_size='small') -> float:
+
+    # Setup Mapping
     mapping = mapping or {0: 'a', 1: 'b', 2: '^'}
-    inverse_mapping = {v: k for k, v in mapping.items()}
-    BLANK_IDX = [k for k, v in mapping.items() if v == blank_symbol][0]
+    inv_mapping = {v: k for k, v in mapping.items()}
+    BLANK_IDX = inv_mapping[blank_symbol]
 
-    # Find most probable path
-    indices = np.argmax(pred, axis=1)
-    chars = "".join(mapping[i] for i in indices)
-    prob = float(np.prod(np.max(pred, axis=1)))
-
-    print(f"force_alignment most probable path: {chars}, with probability: {prob:.4f}")
-    print(f"force_alignment most probable path (collapsed): {ctc_collapse_b(chars)}, with probability: {prob:.4f}")
-
-    # Find most probable path to get aba. Do the exact same thing as before, but instead of summing all paths, we take the max
-
-    # Put a blank between every char, start & end.
+    # Expand Target Sequence (with blanks: ^ a ^ b ^ a ^)
     S = [BLANK_IDX]
     for char in target:
-        S.append(inverse_mapping[char])
+        S.append(inv_mapping[char])
         S.append(BLANK_IDX)
 
-    # Init variables
-    T = pred.shape[0]  # The amount of time steps
-    L = len(S)  # The length of the target sequence (with blanks)
-    alpha = np.zeros((T, L))  # Initialize alpha
+    T = pred.shape[0]  # Time steps (5)
+    L = len(S)  # Expanded length (7 for 'aba')
+
+    # Initialize
+    alpha = np.zeros((T, L))
     backtrace = np.zeros((T, L), dtype=int)
 
-    # Initialize alpha at the 0 with the actual 'pred' values
-    alpha[0, 0] = pred[0, S[0]] # probability to start with a blank value
-    alpha[0, 1] = pred[0, S[1]] # probability to start at the actual first char
+    # Initial step (t=0)
+    alpha[0, 0] = pred[0, S[0]]  # start with blank
+    alpha[0, 1] = pred[0, S[1]]  # start with first char ('a')
 
-    # Dynamic Programing loop
+    #  Forward Pass (max instead of sum)
     for t in range(1, T):
         for s in range(L):
-            # Probability to come from the exact same char as in the previous step
-            max_prob_option = alpha[t-1, s]
-            most_probable_char_idx = s
+            # Option 1: Stay in current state s
+            max_val = alpha[t - 1, s]
+            prev_s = s
 
-            if s > 0:
-                # Probability to come from the previous char
-                if alpha[t-1, s-1] > max_prob_option:
-                    max_prob_option = alpha[t-1, s-1]
-                    most_probable_char_idx = s - 1
+            # Option 2: Move from previous state s-1
+            if s > 0 and alpha[t - 1, s - 1] > max_val:
+                max_val = alpha[t - 1, s - 1]
+                prev_s = s - 1
 
-            # Probability to jump directly from 2 chars before. This is only possible if this one is not blank, or the char at 2 positions before is not the same as the current one
-            if s >= 2 and S[s] != BLANK_IDX and S[s] != S[s-2]:
-                if alpha[t-1, s-2] > max_prob_option:
-                    max_prob_option = alpha[t-1, s-2]
-                    most_probable_char_idx = s - 2
+            # Option 3: Skip blank (move from s-2)
+            # Conditions: s >= 2, current is not blank, and current char != char 2 steps ago
+            if s >= 2 and S[s] != BLANK_IDX and S[s] != S[s - 2]:
+                if alpha[t - 1, s - 2] > max_val:
+                    max_val = alpha[t - 1, s - 2]
+                    prev_s = s - 2
 
-            # Update the probability to reach this position at time t. It's the max probability path to reach this point, multiplied by the probability to get to this point at this time
-            alpha[t, s] = max_prob_option * pred[t, S[s]]
+            alpha[t, s] = max_val * pred[t, S[s]]
+            backtrace[t, s] = prev_s
 
-            # Update the backtrace to know where we came from
-            backtrace[t, s] = most_probable_char_idx
+    # Backtrace the optimal path
+    # Final state can be the last blank or the last character
+    best_final_s = L - 1 if alpha[T - 1, L - 1] > alpha[T - 1, L - 2] else L - 2
+    total_prob = alpha[T - 1, best_final_s]
 
-    # We choose the most probably path at the end because both landing at the end on the last target char or blank is valid
-    total_prob = max(alpha[T-1, L-1], alpha[T-1, L-2])
-
-    # Backtrace what we got before the collapse
-    path_s = [L-1 if alpha[T-1, L-1] > alpha[T-1, L-2] else L-2]
-
-    for t in range(T-1, 0, -1):
+    path_s = [best_final_s]
+    for t in range(T - 1, 0, -1):
         path_s.append(backtrace[t, path_s[-1]])
-
-    # Reverse the list since we built it from end to start
     path_s.reverse()
 
+    # Convert path indices to characters
     path_chars = "".join([mapping[S[s]] for s in path_s])
 
-    print(f"force_alignment path to '{target}': {path_chars}")
-    print(f"force_alignment collapsed path to '{target}': {ctc_collapse_b(path_chars)}")
+    # Convert path indices to the original 3-label mapping (0, 1, 2) for Plot D
+    original_label_path = [S[s] for s in path_s]
 
-    # Plots
-    plt.figure(figsize=(10, 4))
-    sns.heatmap(pred.T, annot=True, fmt=".2f", cmap="YlGnBu",
-                yticklabels=[mapping[i] for i in range(3)])
-    plt.scatter(np.arange(T) + 0.5, indices + 0.5, color='red', marker='x', s=100, label='Greedy Path')
-    plt.title(f"Plot D: Pred Matrix & Greedy Path (Result: {chars})")
-    plt.xlabel("Time Step (t)")
-    plt.legend()
-    output_path = f"./outputs/{file_prefix}_pred_matrix.png"
-    plt.savefig(output_path)
+    print(f"Path for '{target}': {path_chars}")
+    print(f"Probability: {total_prob:.6f}")
 
-    # Plot E: Alpha Matrix + Backtraced Path
-    plt.figure(figsize=(10, 5))
-    # Using log scale for heatmap colors helps visibility as probs get tiny
-    sns.heatmap(alpha.T, annot=True, fmt=".4f", cmap="magma",
-                yticklabels=[f"{s}: {mapping[S[s]]}" for s in range(L)])
-    plt.plot(np.arange(T) + 0.5, np.array(path_s) + 0.5, color='cyan', marker='o', linewidth=2,
-             label=f'Path for "{target}"')
-    plt.title(f"Plot E: Backtrace Matrix & Forced Path for '{target}'")
+    # Plot 6.d: Pred Matrix with Aligned Sequence
+    if fig_size == "small":
+        plt.figure(figsize=(8, 5))
+    else:
+        plt.figure(figsize=(20, 6))
+
+    sns.heatmap(pred.T, annot=annot, fmt=".2f", cmap="YlGnBu",
+                yticklabels=[mapping[i] for i in range(len(mapping))])
+
+    # Plot the forced alignment path
+    plt.step(np.arange(T) + 0.5, np.array(original_label_path) + 0.5,
+             where='mid', color='red', linewidth=3, label='Forced Alignment')
+
+    plt.title(f"6.d: Pred Matrix & Forced Alignment ('{target}')")
     plt.xlabel("Time Step (t)")
-    plt.ylabel("Expanded Target Index (s)")
+    plt.ylabel("Output Labels")
     plt.legend()
-    output_path = f"./outputs/{file_prefix}_backtrace.png"
-    plt.savefig(output_path)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(f"outputs/{file_prefix}_d_alignment.png")
+
+    # Plot 6.e: Backtrace Matrix (Trellis)
+    if fig_size == "small":
+        plt.figure(figsize=(10, 6))
+    else:
+        plt.figure(figsize=(20, 20))
+
+    # Use log scale for heatmap colors to make smaller probabilities visible
+    log_alpha = np.log(alpha + 1e-12)
+
+    sns.heatmap(log_alpha.T, annot=alpha.T if annot else False, fmt=".4f", cmap="magma",
+                yticklabels=[f"S{s}: {mapping[S[s]]}" for s in range(L)])
+
+    # Overlay the path through the trellis
+    plt.plot(np.arange(T) + 0.5, np.array(path_s) + 0.5,
+             color='cyan', marker='o', markersize=10, linewidth=2, label='Selected Path')
+
+    plt.title(f"6.e: Trellis (Alpha) and Backtrace Path")
+    plt.xlabel("Time Step (t)")
+    plt.ylabel("Expanded Sequence States (s)")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"outputs/{file_prefix}_e_backtrace.png")
 
     return total_prob
 
@@ -249,10 +264,12 @@ def test_force_align_pkl_data():
     print(f"""Probability to get '{data["gt_text"]}' with forced alignment (max instead of sum) = {force_alignment(pred=data["acoustic_model_out_probs"], 
                                                                                                      target=data["gt_text"],
                                                                                                      mapping=data["label_mapping"],
-                                                                                                     file_prefix="ex7"):.8f}""")
+                                                                                                     file_prefix="ex7",
+                                                                                                     annot=False,
+                                                                                                     fig_size='large'):.8f}""")
 
 if __name__ == "__main__":
-    # test_ctc_collapse_b()
-    # test_forward()
-    # test_force_alignment()
+    test_ctc_collapse_b()
+    test_forward()
+    test_force_alignment()
     test_force_align_pkl_data()
