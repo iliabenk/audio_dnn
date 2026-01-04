@@ -34,23 +34,23 @@ def dtw(m1, m2):
 
 def calc_distance_matrix():
     reference_dir = "Samples/Segmented/Gal/"
-    validation_dirs = ["Samples/Segmented/Adam/",
+    train_dirs = ["Samples/Segmented/Adam/",
                        "Samples/Segmented/Ido/",
                        "Samples/Segmented/Hagar/",
                        "Samples/Segmented/Inbar/"]
     distances = np.zeros((4,10,11))
-    for speaker_index in range(len(validation_dirs)):
+    for speaker_index in range(len(train_dirs)):
         for reference_digit in range(10):
             reference_digit_path = reference_dir + f"segment_0{reference_digit}.wav"
             refence_mel = compute_mel_spectrogram(reference_digit_path)
 
             for evaluated_digit in range(10):
-                evaluated_digit_path = validation_dirs[speaker_index] + f"segment_0{evaluated_digit}.wav"
+                evaluated_digit_path = train_dirs[speaker_index] + f"segment_0{evaluated_digit}.wav"
                 evaluated_mel = compute_mel_spectrogram(evaluated_digit_path)
                 current_dtw = dtw(refence_mel, evaluated_mel)
                 distances[speaker_index,reference_digit,evaluated_digit] = current_dtw
 
-            evaluated_gorilla_path = validation_dirs[speaker_index] + f"segment_10.wav"
+            evaluated_gorilla_path = train_dirs[speaker_index] + f"segment_10.wav"
             evaluated_mel = compute_mel_spectrogram(evaluated_gorilla_path)
             current_dtw = dtw(refence_mel, evaluated_mel)
             distances[speaker_index,reference_digit,10] = current_dtw
