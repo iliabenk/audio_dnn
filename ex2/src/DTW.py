@@ -4,33 +4,30 @@ import numpy as np
 from mel_spectrogram import compute_mel_spectrogram
 
 
-def dtw(m1, m2):
+def dtw(m1, m2, normalize=True):
+    n, m = m1.shape[1], m2.shape[1]
 
-    distances = np.zeros((m1.shape[1], m2.shape[1]))
-    for i in range(distances.shape[0]):
-        for j in range(distances.shape[1]):
+    distances = np.zeros((n, m))
+    for i in range(n):
+        for j in range(m):
             distances[i][j] = np.sqrt(np.sum((m1[:,i] - m2[:,j])**2))
 
-    dtw = np.zeros_like(distances)
-    # dtw_backtracking = np.zeros_like(distances)
+    dtw_matrix = np.zeros_like(distances)
 
-    dtw[0,0] = distances[0,0]
-    for i in range(1,distances.shape[0]):
-        dtw[i,0] = dtw[i-1,0] + distances[i,0]
-        # dtw_backtracking[i,0] = 2
-    for j in range(1,distances.shape[1]):
-        dtw[0,j] = dtw[0,j-1] + distances[0,j]
-        # dtw_backtracking[0,j] = 1
+    dtw_matrix[0,0] = distances[0,0]
+    for i in range(1, n):
+        dtw_matrix[i,0] = dtw_matrix[i-1,0] + distances[i,0]
+    for j in range(1, m):
+        dtw_matrix[0,j] = dtw_matrix[0,j-1] + distances[0,j]
 
-    for i in range(1, dtw.shape[0]):
-        for j in range(1, dtw.shape[1]):
-            a = dtw[i-1,j-1]
-            b = dtw[i,j-1]
-            c = dtw[i-1,j]
-            # dtw_backtracking[i,j] = np.argmin(np.array([a, b, c]))
-            dtw[i,j] = min(a, b, c) + distances[i,j]
+    for i in range(1, n):
+        for j in range(1, m):
+            dtw_matrix[i,j] = min(dtw_matrix[i-1,j-1], dtw_matrix[i,j-1], dtw_matrix[i-1,j]) + distances[i,j]
 
-    return dtw[dtw.shape[0] - 1][dtw.shape[1] - 1]
+    cost = dtw_matrix[n - 1][m - 1]
+    if normalize:
+        cost = cost / (n + m)
+    return cost
 
 def calc_distance_matrix():
     reference_dir = "Samples/Segmented/Gal/"
@@ -58,7 +55,7 @@ def calc_distance_matrix():
     return distances
 
 
-def calculate_accuracy(distances, threshold=6976):
+def calculate_accuracy(distances, threshold=56):
     speakers = ['Adam', 'Ido', 'Hagar', 'Inbar']
 
     correct_digits = 0
@@ -100,7 +97,7 @@ def calculate_accuracy(distances, threshold=6976):
     return overall_accuracy
 
 
-def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6976) -> None:
+def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray, thresh=56) -> None:
     titles = ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
     cols = np.arange(arr.shape[2])
 
@@ -129,5 +126,5 @@ def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6976) -> Non
 
 if __name__ == "__main__":
     distances = calc_distance_matrix()
-    calculate_accuracy(distances, threshold=6976)
+    calculate_accuracy(distances, threshold=56)
     plot_4_matrices_heatmaps_with_col_argmin(distances)
