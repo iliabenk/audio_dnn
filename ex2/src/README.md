@@ -19,16 +19,6 @@ Samples/
 
 ## Scripts
 
-### segment_audio.py
-Main segmentation script. Automatically segments raw audio files into individual words.
-
-```bash
-python3 segment_audio.py
-```
-
-### fix_segments.py
-Fix problematic speakers with custom parameters.
-
 ### play_segments.py
 Play all segments to verify segmentation quality.
 
