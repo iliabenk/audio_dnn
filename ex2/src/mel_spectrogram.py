@@ -136,6 +136,6 @@ if __name__ == "__main__":
     print("\nGenerating across-speakers comparison (digit 2)...")
     compare_across_speakers(2, ["Gal", "Roy", "Hagar", "Inbar"])
 
-    # 3 speakers (2 males, 1 female) across 2 digits
-    print("\nGenerating speakers vs digits comparison (Roy, Ofir, Shir - digits 1, 2)...")
-    compare_speakers_across_digits(["Roy", "Ofir", "Shir"], [1, 2])
+    # 3 speakers (2 males, 1 female) across 3 digits
+    print("\nGenerating speakers vs digits comparison (Ofir, Roy, Shir - digits 0, 1, 2)...")
+    compare_speakers_across_digits(["Ofir", "Roy", "Shir"], [0, 1, 2])
