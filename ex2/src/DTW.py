@@ -32,25 +32,21 @@ def dtw(m1, m2):
 
     return dtw[dtw.shape[0] - 1][dtw.shape[1] - 1]
 
-def calc_distance_matrix():
+def calc_distance_matrix(dir_list):
     reference_dir = "Samples/Segmented/Gal/"
-    train_dirs = ["Samples/Segmented/Adam/",
-                       "Samples/Segmented/Ido/",
-                       "Samples/Segmented/Hagar/",
-                       "Samples/Segmented/Inbar/"]
-    distances = np.zeros((4,10,11))
-    for speaker_index in range(len(train_dirs)):
+    distances = np.zeros((len(dir_list),10,11))
+    for speaker_index in range(len(dir_list)):
         for reference_digit in range(10):
             reference_digit_path = reference_dir + f"segment_0{reference_digit}.wav"
             refence_mel = compute_mel_spectrogram(reference_digit_path)
 
             for evaluated_digit in range(10):
-                evaluated_digit_path = train_dirs[speaker_index] + f"segment_0{evaluated_digit}.wav"
+                evaluated_digit_path = dir_list[speaker_index] + f"segment_0{evaluated_digit}.wav"
                 evaluated_mel = compute_mel_spectrogram(evaluated_digit_path)
                 current_dtw = dtw(refence_mel, evaluated_mel)
                 distances[speaker_index,reference_digit,evaluated_digit] = current_dtw
 
-            evaluated_gorilla_path = train_dirs[speaker_index] + f"segment_10.wav"
+            evaluated_gorilla_path = dir_list[speaker_index] + f"segment_10.wav"
             evaluated_mel = compute_mel_spectrogram(evaluated_gorilla_path)
             current_dtw = dtw(refence_mel, evaluated_mel)
             distances[speaker_index,reference_digit,10] = current_dtw
@@ -58,7 +54,7 @@ def calc_distance_matrix():
     return distances
 
 
-def calculate_accuracy(distances, threshold=6976):
+def calculate_accuracy(distances, thresh=6776):
     speakers = ['Adam', 'Ido', 'Hagar', 'Inbar']
 
     correct_digits = 0
@@ -75,7 +71,7 @@ def calculate_accuracy(distances, threshold=6976):
             predicted = np.argmin(dists)
             min_dist = dists[predicted]
 
-            if min_dist >= threshold:
+            if min_dist >= thresh:
                 rejected_as_noise += 1
             elif predicted == true_digit:
                 correct_digits += 1
@@ -83,14 +79,14 @@ def calculate_accuracy(distances, threshold=6976):
                 misclassified += 1
 
         noise_dists = distances[s, :, 10]
-        if np.min(noise_dists) >= threshold:
+        if np.min(noise_dists) >= thresh:
             correct_noise += 1
 
     digit_accuracy = correct_digits / total_digits
     noise_accuracy = correct_noise / total_noise
     overall_accuracy = (correct_digits + correct_noise) / (total_digits + total_noise)
 
-    print(f"Threshold: {threshold}")
+    print(f"Threshold: {thresh}")
     print(f"Digit classification: {correct_digits}/{total_digits} ({digit_accuracy:.1%})")
     print(f"  Rejected as noise: {rejected_as_noise}")
     print(f"  Misclassified: {misclassified}")
@@ -100,7 +96,7 @@ def calculate_accuracy(distances, threshold=6976):
     return overall_accuracy
 
 
-def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6976) -> None:
+def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6776) -> None:
     titles = ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
     cols = np.arange(arr.shape[2])
 
@@ -124,10 +120,53 @@ def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6976) -> Non
 
     plt.show()
 
+def calculate_confusion_matrix(thresh=6776):
+    validation_dirs = ["Samples/Segmented/Nirit/","Samples/Segmented/Ofir/",
+                       "Samples/Segmented/Roy/", "Samples/Segmented/Shir/"]
+    distances = calc_distance_matrix(validation_dirs)
+    confusion_matrix = np.zeros((11,11))
+    for i in range(distances.shape[0]):
+        for j in range(11):
+            scores = distances[i,:,j]
+            result = np.argmin(scores)
+            if scores[result]<thresh:
+                confusion_matrix[j,result] += 1
+            else:
+                confusion_matrix[j,10] += 1
+    return confusion_matrix
+
+def plot_confusion_matrix_from_threshold(thresh: float = 6976) -> np.ndarray:
+    """
+    Computes the confusion matrix using `calculate_confusion_matrix(thresh)`
+    and plots it as a heatmap.
+    Returns the (possibly unnormalized) confusion matrix.
+    """
+    cm_plot = calculate_confusion_matrix(thresh)  # should return a (11, 11) matrix
 
 
+    plt.figure(figsize=(7, 6))
+    im = plt.imshow(cm_plot, aspect="auto")
+    plt.title(f"Confusion Matrix (thresh={thresh})")
+    plt.xlabel("Predicted label")
+    plt.ylabel("True label")
+    plt.colorbar(im)
+
+    # annotate cells
+    for i in range(cm_plot.shape[0]):
+        for j in range(cm_plot.shape[1]):
+            txt = f"{int(cm_plot[i, j])}"
+            plt.text(j, i, txt, ha="center", va="center")
+
+    plt.tight_layout()
+    plt.show()
+    return cm_plot
 
 if __name__ == "__main__":
-    distances = calc_distance_matrix()
-    calculate_accuracy(distances, threshold=6976)
-    plot_4_matrices_heatmaps_with_col_argmin(distances)
+    train_dir = ["Samples/Segmented/Adam/",
+     "Samples/Segmented/Ido/",
+     "Samples/Segmented/Hagar/",
+     "Samples/Segmented/Inbar/"]
+    # distances = calc_distance_matrix()
+    # calculate_accuracy(distances, threshold=6776)
+    # plot_4_matrices_heatmaps_with_col_argmin(distances)
+    plot_confusion_matrix_from_threshold(thresh=6776)
