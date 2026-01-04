@@ -138,4 +138,4 @@ if __name__ == "__main__":
 
     # 3 speakers (2 males, 1 female) across 3 digits
     print("\nGenerating speakers vs digits comparison (Ofir, Roy, Shir - digits 0, 1, 2)...")
-    compare_speakers_across_digits(["Ofir", "Roy", "Shir"], [0, 1, 2])
+    compare_speakers_across_digits(["Ofir", "Roy", "Shir"], [1, 2, 3])
