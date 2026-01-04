@@ -32,7 +32,7 @@ python3 play_segments.py
 |---------|--------|---------|-----------|
 | Gal     | 25     | 0.3s    | 50ms      |
 | Hagar   | 25     | 0.3s    | 50ms      |
-| Matz    | 25     | 0.3s    | 50ms      |
+| Roy    | 25     | 0.3s    | 50ms      |
 | Ofir    | 25     | 0.3s    | 50ms      |
 | Adam    | 25     | 0.3s    | 150ms     |
 | Nirit   | 20     | 0.15s   | 50ms      |
@@ -46,7 +46,7 @@ python3 play_segments.py
 |------|----------|
 | Class Representative (Reference DB) | Gal |
 | Training (2M + 2F) | Adam, Ido, Hagar, Inbar |
-| Evaluation (2M + 2F) | Matz, Ofir, Nirit, Shir |
+| Evaluation (2M + 2F) | Roy, Ofir, Nirit, Shir |
 
 ## File Naming
 

@@ -10,6 +10,7 @@ HOP_LENGTH = int(0.010 * SAMPLE_RATE)  # 10ms hop = 160 samples
 N_MELS = 80
 
 SEGMENTED_DIR = Path("Samples/Segmented")
+PICTURES_DIR = Path("Pictures")
 
 
 def compute_mel_spectrogram(audio_path):
@@ -54,7 +55,7 @@ def compare_within_speaker(speaker_name, digits=(1, 2)):
         plot_mel_spectrogram(mel_spec, title=f"Digit {digit}", ax=axes[i])
 
     plt.tight_layout()
-    plt.savefig(f"within_speaker_{speaker_name}.png", dpi=150)
+    plt.savefig(PICTURES_DIR / f"within_speaker_{speaker_name}.png", dpi=150)
     plt.show()
 
 
@@ -70,7 +71,28 @@ def compare_across_speakers(digit, speakers):
         plot_mel_spectrogram(mel_spec, title=speaker, ax=axes[i])
 
     plt.tight_layout()
-    plt.savefig(f"across_speakers_digit_{digit}.png", dpi=150)
+    plt.savefig(PICTURES_DIR / f"across_speakers_digit_{digit}.png", dpi=150)
+    plt.show()
+
+
+def compare_speakers_across_digits(speakers, digits):
+    """Compare multiple speakers across multiple digits (grid view)."""
+    n_digits = len(digits)
+    n_speakers = len(speakers)
+    fig, axes = plt.subplots(n_digits, n_speakers, figsize=(4 * n_speakers, 4 * n_digits))
+    fig.suptitle(f"Speakers vs Digits Comparison")
+
+    for i, digit in enumerate(digits):
+        for j, speaker in enumerate(speakers):
+            audio_path = SEGMENTED_DIR / speaker / f"segment_{digit:02d}.wav"
+            mel_spec = compute_mel_spectrogram(audio_path)
+            ax = axes[i, j] if n_digits > 1 else axes[j]
+            plot_mel_spectrogram(mel_spec, title=f"{speaker} - Digit {digit}", ax=ax)
+
+    plt.tight_layout()
+    speakers_str = "_".join(speakers)
+    digits_str = "_".join(str(d) for d in digits)
+    plt.savefig(PICTURES_DIR / f"comparison_{speakers_str}_digits_{digits_str}.png", dpi=150)
     plt.show()
 
 
@@ -112,4 +134,8 @@ if __name__ == "__main__":
 
     # Across speakers comparison (digit 2: male vs female)
     print("\nGenerating across-speakers comparison (digit 2)...")
-    compare_across_speakers(2, ["Gal", "Adam", "Hagar", "Inbar"])
+    compare_across_speakers(2, ["Gal", "Roy", "Hagar", "Inbar"])
+
+    # 3 speakers (2 males, 1 female) across 2 digits
+    print("\nGenerating speakers vs digits comparison (Roy, Ofir, Shir - digits 1, 2)...")
+    compare_speakers_across_digits(["Roy", "Ofir", "Shir"], [1, 2])
