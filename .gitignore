@@ -211,3 +211,4 @@ __marimo__/
 *.png
 *.iml
 .idea/*
+.DS_Store
