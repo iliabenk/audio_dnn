@@ -89,9 +89,29 @@ def calculate_confusion_matrix(validation_dirs, thresh=6776):
                 confusion_matrix[j,10] += 1
     return confusion_matrix
 
-def plot_confusion_matrix_from_threshold(val_dir, thresh = 6776):
 
-    conf_mat = calculate_confusion_matrix(val_dir, thresh)  # should return a (11, 11) matrix
+def calculate_accuracy_from_confusion_matrix(confusion_matrix):
+    total_samples = np.sum(confusion_matrix)
+    correct = np.trace(confusion_matrix)
+    overall_accuracy = correct / total_samples
+
+    digit_correct = np.trace(confusion_matrix[:10, :10])
+    digit_total = np.sum(confusion_matrix[:10, :])
+    digit_accuracy = digit_correct / digit_total
+
+    noise_correct = confusion_matrix[10, 10]
+    noise_total = np.sum(confusion_matrix[10, :])
+    noise_accuracy = noise_correct / noise_total if noise_total > 0 else 0
+
+    print(f"Digit accuracy: {digit_correct:.0f}/{digit_total:.0f} ({digit_accuracy:.1%})")
+    print(f"Noise accuracy: {noise_correct:.0f}/{noise_total:.0f} ({noise_accuracy:.1%})")
+    print(f"Overall accuracy: {correct:.0f}/{total_samples:.0f} ({overall_accuracy:.1%})")
+
+    return overall_accuracy
+
+def plot_confusion_matrix_from_threshold(val_dir, thresh=6776):
+    conf_mat = calculate_confusion_matrix(val_dir, thresh)
+    calculate_accuracy_from_confusion_matrix(conf_mat)
 
     plt.figure(figsize=(7, 6))
     im = plt.imshow(conf_mat, aspect="auto")
