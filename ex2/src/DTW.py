@@ -58,13 +58,15 @@ def calc_distance_matrix():
     return distances
 
 
-def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray) -> None:
+def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray,thresh=6976) -> None:
     titles = ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
     cols = np.arange(arr.shape[2])
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
     axes = axes.ravel()
-    arr = arr < 7000
+    if thresh is not None:
+        arr = arr < thresh
+
     for i, ax in enumerate(axes):
         mat = arr[i]
         argmin_rows = np.argmin(mat, axis=0)
