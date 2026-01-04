@@ -1,5 +1,6 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 from mel_spectrogram import compute_mel_spectrogram
 
 
@@ -32,13 +33,13 @@ def dtw(m1, m2):
     return dtw[dtw.shape[0] - 1][dtw.shape[1] - 1]
 
 def calc_distance_matrix():
-    reference_dir = "Samples/Segmented/Ido/"
+    reference_dir = "Samples/Segmented/Gal/"
     validation_dirs = ["Samples/Segmented/Adam/",
-                       "Samples/Segmented/Roy/",
+                       "Samples/Segmented/Ido/",
                        "Samples/Segmented/Hagar/",
                        "Samples/Segmented/Inbar/"]
     distances = np.zeros((4,10,11))
-    for speaker_index in range(4):
+    for speaker_index in range(len(validation_dirs)):
         for reference_digit in range(10):
             reference_digit_path = reference_dir + f"segment_0{reference_digit}.wav"
             refence_mel = compute_mel_spectrogram(reference_digit_path)
@@ -54,60 +55,31 @@ def calc_distance_matrix():
             distances[speaker_index,reference_digit,10] = current_dtw
     return distances
 
-import numpy as np
-import matplotlib.pyplot as plt
 
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-
-def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray, titles=None, marker="x") -> None:
-    """
-    Plot 4 heatmaps from an array of shape (4, 10, 11) and mark, for each column,
-    the row index of the argmin value.
-
-    Marks are drawn on top of each heatmap at (col, argmin_row).
-
-    Parameters
-    ----------
-    arr : np.ndarray
-        Shape must be (4, 10, 11).
-    titles : list[str] | None
-        Optional list of 4 titles.
-    marker : str
-        Matplotlib marker style for argmin points (default: "x").
-    """
+def plot_4_matrices_heatmaps_with_col_argmin(arr: np.ndarray) -> None:
     arr = np.asarray(arr)
-    if arr.shape != (4, 10, 11):
-        raise ValueError(f"Expected shape (4, 10, 11), got {arr.shape}")
 
-    if titles is None:
-        titles = [f"Matrix {i}" for i in range(4)]
-    if len(titles) != 4:
-        raise ValueError("titles must be a list of length 4")
+    titles = ["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"]
 
-    n_rows, n_cols = arr.shape[1], arr.shape[2]
-    cols = np.arange(n_cols)
+    cols = np.arange(arr.shape[2])
 
     for i in range(4):
         mat = arr[i]
-
-        # Argmin row per column (shape: (n_cols,))
         argmin_rows = np.argmin(mat, axis=0)
 
         plt.figure()
-        im = plt.imshow(mat, aspect="auto")  # default colormap
+        im = plt.imshow(mat, aspect="auto")
         plt.title(titles[i])
         plt.xlabel("Column index")
         plt.ylabel("Row index")
 
-        # Overlay argmin markers: x = column, y = argmin row
-        plt.scatter(cols, argmin_rows, marker=marker, s=60)
+        # Red 'x' markers for argmin per column
+        plt.scatter(cols, argmin_rows, color="red", marker="x", s=80, linewidths=2)
 
         plt.colorbar(im, label="Value")
         plt.tight_layout()
         plt.show()
+
 
 
 if __name__ == "__main__":
