@@ -16,6 +16,41 @@ N_MELS = 80
 SEGMENTED_DIR = Path("Samples/Segmented")
 PICTURES_DIR = Path("Pictures")
 
+
+def push(fifo, value):
+    fifo = np.roll(fifo, -1, axis=0)
+    fifo[-1] = value
+    return fifo
+
+
+def agc(audio, target_rms_db=-20, noise_floor_db=-50, frame_length=400):
+    hop_length = frame_length // 2
+
+    target_rms = 10 ** (target_rms_db / 20)
+    noise_floor = 10 ** (noise_floor_db / 20)
+
+    rms_fifo = np.zeros((SAMPLE_RATE // frame_length, 1), dtype=np.float32)
+
+    processed_audio = np.zeros(len(audio), dtype=np.float32)
+
+    for i in range(0, len(audio), hop_length):
+        frame = audio[i:i + frame_length]
+        rms = np.sqrt(np.mean(frame ** 2))
+        rms_fifo = push(rms_fifo, rms)
+        if rms < noise_floor:
+            gain = 1
+        else:
+            gain = target_rms / np.mean(rms_fifo, axis=0)
+        new_frame = frame * gain
+        new_frame = np.tanh(new_frame)
+        new_frame = new_frame.astype(np.float32)
+        if i + frame_length > len(audio):
+            processed_audio[i:] = new_frame[:len(audio) - i]
+        else:
+            processed_audio[i:i + frame_length] = new_frame
+
+    return processed_audio
+
 def resample_audio_to_16khz(
     input_path: Union[str, Path],
     output_path: Union[str, Path],
@@ -29,9 +64,11 @@ def resample_audio_to_16khz(
 
 
 
-def compute_mel_spectrogram(audio_path):
+def compute_mel_spectrogram(audio_path, apply_agc=False):
     """Compute Mel Spectrogram for an audio file."""
     y, sr = librosa.load(audio_path, sr=SAMPLE_RATE)
+    if apply_agc:
+        y = agc(y)
     mel_spec = librosa.feature.melspectrogram(
         y=y,
         sr=sr,
