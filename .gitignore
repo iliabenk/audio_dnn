@@ -208,7 +208,6 @@ __marimo__/
 
 # My ignores
 *.xml
-*.png
 *.iml
 .idea/*
 .DS_Store
