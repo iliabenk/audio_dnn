@@ -50,14 +50,18 @@ python3 play_segments.py
 | Shir    | 30     | 0.1s    | 50ms      |
 | Inbar   | 25     | 0.15s   | 150ms     |
 
+## Speaker Split
+
+| Role | Speakers |
+|------|----------|
+| Class Representative (Reference DB) | Gal |
+| Training (2M + 2F) | Adam, Ido, Hagar, Inbar |
+| Evaluation (2M + 2F) | Matz, Ofir, Nirit, Shir |
+
 ## Next Steps
 
 1. Listen to segments with `play_segments.py`
 2. Rename files: `segment_XX.wav` -> `0.wav`, `1.wav`, ..., `9.wav`, `random.wav`
-3. Organize speakers into:
-   - 1 class representative (reference DB)
-   - 4 training (2M, 2F)
-   - 4 evaluation (2M, 2F)
 4. Extract Mel Spectrograms (25ms window, 10ms hop, 80 filter banks)
 5. Implement DTW algorithm
 6. Implement CTC forward algorithm
