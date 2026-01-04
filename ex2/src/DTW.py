@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ex2.src.mel_spectrogram import compute_mel_spectrogram
+from mel_spectrogram import compute_mel_spectrogram
 
 
 def dtw(m1, m2):
