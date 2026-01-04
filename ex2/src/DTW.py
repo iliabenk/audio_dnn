@@ -4,8 +4,8 @@ import numpy as np
 from mel_spectrogram import compute_mel_spectrogram
 
 
-def dtw(m1, m2):
-
+def dtw(m1, m2, normalize=False):
+    n, m = m1.shape[1], m2.shape[1]
     distances = np.zeros((m1.shape[1], m2.shape[1]))
     for i in range(distances.shape[0]):
         for j in range(distances.shape[1]):
@@ -30,7 +30,10 @@ def dtw(m1, m2):
             # dtw_backtracking[i,j] = np.argmin(np.array([a, b, c]))
             dtw[i,j] = min(a, b, c) + distances[i,j]
 
-    return dtw[dtw.shape[0] - 1][dtw.shape[1] - 1]
+    cost = dtw[n - 1][m - 1]
+    if normalize:
+        cost = cost / (n + m)
+    return cost
 
 def calc_distance_matrix(dir_list):
     reference_dir = "Samples/Segmented/Gal/"
