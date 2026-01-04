@@ -58,10 +58,14 @@ python3 play_segments.py
 | Training (2M + 2F) | Adam, Ido, Hagar, Inbar |
 | Evaluation (2M + 2F) | Matz, Ofir, Nirit, Shir |
 
+## File Naming
+
+Segments are named `segment_00.wav` to `segment_10.wav` and correspond to:
+- `segment_00.wav` - `segment_09.wav`: digits 0-9
+- `segment_10.wav`: random word
+
 ## Next Steps
 
-1. Listen to segments with `play_segments.py`
-2. Rename files: `segment_XX.wav` -> `0.wav`, `1.wav`, ..., `9.wav`, `random.wav`
-4. Extract Mel Spectrograms (25ms window, 10ms hop, 80 filter banks)
-5. Implement DTW algorithm
-6. Implement CTC forward algorithm
+1. Extract Mel Spectrograms (25ms window, 10ms hop, 80 filter banks)
+2. Implement DTW algorithm
+3. Implement CTC forward algorithm
