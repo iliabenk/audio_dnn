@@ -7,7 +7,7 @@ REFERENCE_DIR = "Samples/Segmented/Gal/"
 VALIDATION_DIR = ["Samples/Segmented/Nirit/","Samples/Segmented/Ofir/",
                        "Samples/Segmented/Roy/", "Samples/Segmented/Shir/"]
 
-def dtw(m1, m2, normalize=False):
+def dtw(m1, m2, normalize=True):
     n, m = m1.shape[1], m2.shape[1]
     distances = np.zeros((m1.shape[1], m2.shape[1]))
     for i in range(distances.shape[0]):
@@ -53,7 +53,7 @@ def calc_distance_matrix(dir_list):
     return distances
 
 
-def plot_distance_matrices(arr: np.ndarray, titles, thresh=6776) -> None:
+def plot_distance_matrices(arr: np.ndarray, titles, thresh=59) -> None:
     cols = np.arange(arr.shape[2])
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
@@ -75,7 +75,7 @@ def plot_distance_matrices(arr: np.ndarray, titles, thresh=6776) -> None:
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Value")
 
     plt.show()
-def plot_section_e(arr: np.ndarray, titles, thresh=6776) -> None:
+def plot_section_e(arr: np.ndarray, titles, thresh=59) -> None:
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
     axes = axes.ravel()
@@ -97,7 +97,7 @@ def plot_section_e(arr: np.ndarray, titles, thresh=6776) -> None:
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Value")
 
     plt.show()
-def calculate_confusion_matrix(validation_dirs, thresh=6776):
+def calculate_confusion_matrix(validation_dirs, thresh=59):
     confusion_distances = calc_distance_matrix(validation_dirs)
     confusion_matrix = np.zeros((11,11))
     for i in range(confusion_distances.shape[0]):
@@ -130,7 +130,7 @@ def calculate_accuracy_from_confusion_matrix(confusion_matrix):
 
     return overall_accuracy
 
-def plot_confusion_matrix_from_threshold(val_dir, thresh=6776):
+def plot_confusion_matrix_from_threshold(val_dir, thresh=59):
     conf_mat = calculate_confusion_matrix(val_dir, thresh)
     calculate_accuracy_from_confusion_matrix(conf_mat)
 
@@ -163,4 +163,4 @@ if __name__ == "__main__":
 
     plot_section_e(distances,
     titles=["Gal Vs Adam", "Gal Vs Ido", "Gal Vs Hagar", "Gal Vs Inbar"])
-    plot_confusion_matrix_from_threshold(VALIDATION_DIR, thresh=6776)
+    plot_confusion_matrix_from_threshold(VALIDATION_DIR, thresh=59)
