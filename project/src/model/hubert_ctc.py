@@ -1,5 +1,9 @@
 """HuBERT model initialization for CTC-based ASR."""
 
+import json
+import tempfile
+from pathlib import Path
+
 from transformers import (
     HubertConfig,
     HubertForCTC,
@@ -67,16 +71,18 @@ class HuBERTForASR:
             self.config.name
         )
 
-        # Create tokenizer with vocabulary
+        # Create a temporary vocab file for the tokenizer
+        vocab_file = Path(tempfile.gettempdir()) / "hubert_vocab.json"
+        with open(vocab_file, "w") as f:
+            json.dump(self.VOCAB, f)
+
+        # Create tokenizer with vocabulary file
         tokenizer = Wav2Vec2CTCTokenizer(
-            vocab_file=None,
+            vocab_file=str(vocab_file),
             unk_token="<unk>",
             pad_token="<pad>",
             word_delimiter_token="|",
         )
-        # Set vocabulary manually
-        tokenizer.encoder = self.VOCAB.copy()
-        tokenizer.decoder = {v: k for k, v in self.VOCAB.items()}
 
         # Combine into processor
         processor = Wav2Vec2Processor(

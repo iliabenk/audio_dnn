@@ -16,6 +16,9 @@ project/
 │   ├── gpu.yaml              # Optimized for large GPUs (24GB+)
 │   └── mac.yaml              # Optimized for Mac with MPS
 ├── src/                      # Source code
+│   ├── train.py              # Training entry point
+│   ├── evaluate.py           # Evaluation entry point
+│   ├── transcribe.py         # Transcription entry point
 │   ├── config.py             # Configuration dataclasses
 │   ├── data/                 # Data loading modules
 │   │   ├── dataset.py        # LibriSpeech dataset
@@ -28,10 +31,12 @@ project/
 │   │   └── metrics.py        # WER computation
 │   └── utils/                # Utility modules
 │       └── device.py         # Device management
-├── scripts/                  # Entry point scripts
-│   ├── train.py              # Training script
-│   ├── evaluate.py           # Evaluation script
-│   └── transcribe.py         # Transcription script
+├── scripts/                  # Bash scripts with predefined configs
+│   ├── train_debug.sh        # Quick debug training
+│   ├── train_gpu.sh          # GPU training
+│   ├── train_mac.sh          # Mac training
+│   ├── evaluate.sh           # Evaluation wrapper
+│   └── transcribe.sh         # Transcription wrapper
 ├── outputs/                  # Training outputs (gitignored)
 └── requirements.txt          # Dependencies
 ```
@@ -54,44 +59,51 @@ pip install -r requirements.txt
 
 ### Training
 
-**Debug run (quick test):**
+**Using bash scripts (recommended):**
 ```bash
-python scripts/train.py --config configs/debug.yaml
+# Debug run (quick test)
+./scripts/train_debug.sh
+
+# Full training on GPU
+./scripts/train_gpu.sh
+
+# Training on Mac
+./scripts/train_mac.sh
 ```
 
-**Full training on GPU:**
+**Using Python module directly:**
 ```bash
-python scripts/train.py --config configs/gpu.yaml
-```
+# With any config
+python -m src.train --config configs/default.yaml
 
-**Training on Mac:**
-```bash
-python scripts/train.py --config configs/mac.yaml
-```
-
-**Resume from checkpoint:**
-```bash
-python scripts/train.py --config configs/default.yaml --resume outputs/hubert-finetuned/checkpoint-500
+# Resume from checkpoint
+python -m src.train --config configs/gpu.yaml --resume outputs/checkpoint-500
 ```
 
 ### Evaluation
 
-**Evaluate on test splits:**
+**Using bash script:**
 ```bash
-python scripts/evaluate.py --model outputs/hubert-finetuned/final --splits test.clean test.other
+./scripts/evaluate.sh outputs/hubert-gpu/final --splits test.clean test.other
 ```
 
-**Save results to JSON:**
+**Using Python module:**
 ```bash
-python scripts/evaluate.py --model outputs/hubert-finetuned/final --output results.json
+python -m src.evaluate --model outputs/hubert-finetuned/final --splits test.clean test.other
+python -m src.evaluate --model outputs/hubert-finetuned/final --output results.json
 ```
 
 ### Transcription
 
-**Transcribe audio files:**
+**Using bash script:**
 ```bash
-python scripts/transcribe.py --model outputs/hubert-finetuned/final --audio sample.wav
-python scripts/transcribe.py --model outputs/hubert-finetuned/final --audio file1.wav file2.wav file3.wav
+./scripts/transcribe.sh outputs/hubert-gpu/final sample.wav
+```
+
+**Using Python module:**
+```bash
+python -m src.transcribe --model outputs/hubert-finetuned/final --audio sample.wav
+python -m src.transcribe --model outputs/hubert-finetuned/final --audio file1.wav file2.wav
 ```
 
 ## Configuration
