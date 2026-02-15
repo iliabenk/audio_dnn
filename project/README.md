@@ -1,0 +1,173 @@
+# HuBERT ASR Fine-tuning
+
+Reproduce HuBERT ASR results by fine-tuning on LibriSpeech using CTC loss.
+
+## Overview
+
+This project implements a modular system for fine-tuning the HuBERT (Hidden-Unit BERT) model on the LibriSpeech dataset for Automatic Speech Recognition (ASR). It reproduces key results from the paper "HuBERT: Self-Supervised Speech Representation Learning by Masked Prediction of Hidden Units" by Hsu et al.
+
+## Project Structure
+
+```
+project/
+├── configs/                   # Configuration files
+│   ├── default.yaml          # Default 100h training
+│   ├── debug.yaml            # Quick debug config
+│   ├── gpu.yaml              # Optimized for large GPUs (24GB+)
+│   └── mac.yaml              # Optimized for Mac with MPS
+├── src/                      # Source code
+│   ├── config.py             # Configuration dataclasses
+│   ├── data/                 # Data loading modules
+│   │   ├── dataset.py        # LibriSpeech dataset
+│   │   └── collator.py       # CTC data collator
+│   ├── model/                # Model modules
+│   │   └── hubert_ctc.py     # HuBERT CTC wrapper
+│   ├── training/             # Training modules
+│   │   └── trainer.py        # HuggingFace Trainer setup
+│   ├── evaluation/           # Evaluation modules
+│   │   └── metrics.py        # WER computation
+│   └── utils/                # Utility modules
+│       └── device.py         # Device management
+├── scripts/                  # Entry point scripts
+│   ├── train.py              # Training script
+│   ├── evaluate.py           # Evaluation script
+│   └── transcribe.py         # Transcription script
+├── outputs/                  # Training outputs (gitignored)
+└── requirements.txt          # Dependencies
+```
+
+## Installation
+
+1. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+2. Install dependencies:
+```bash
+cd project
+pip install -r requirements.txt
+```
+
+## Usage
+
+### Training
+
+**Debug run (quick test):**
+```bash
+python scripts/train.py --config configs/debug.yaml
+```
+
+**Full training on GPU:**
+```bash
+python scripts/train.py --config configs/gpu.yaml
+```
+
+**Training on Mac:**
+```bash
+python scripts/train.py --config configs/mac.yaml
+```
+
+**Resume from checkpoint:**
+```bash
+python scripts/train.py --config configs/default.yaml --resume outputs/hubert-finetuned/checkpoint-500
+```
+
+### Evaluation
+
+**Evaluate on test splits:**
+```bash
+python scripts/evaluate.py --model outputs/hubert-finetuned/final --splits test.clean test.other
+```
+
+**Save results to JSON:**
+```bash
+python scripts/evaluate.py --model outputs/hubert-finetuned/final --output results.json
+```
+
+### Transcription
+
+**Transcribe audio files:**
+```bash
+python scripts/transcribe.py --model outputs/hubert-finetuned/final --audio sample.wav
+python scripts/transcribe.py --model outputs/hubert-finetuned/final --audio file1.wav file2.wav file3.wav
+```
+
+## Configuration
+
+Configuration is done via YAML files. Key parameters:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `model.name` | HuggingFace model name | `facebook/hubert-base-ls960` |
+| `model.freeze_feature_encoder` | Freeze CNN layers | `true` |
+| `dataset.train_split` | Training split | `train.100` |
+| `training.num_train_epochs` | Number of epochs | `30` |
+| `training.learning_rate` | Learning rate | `3e-5` |
+| `training.per_device_train_batch_size` | Batch size per device | varies by config |
+| `training.fp16` | Mixed precision training | `true` (GPU only) |
+
+### Available Training Splits
+
+- `train.100` - 100 hours (train-clean-100)
+- `train.360` - 360 hours (train-clean-360)
+- `train.other.500` - 500 hours (train-other-500)
+
+## Expected Results
+
+Based on the HuBERT paper (Table 5):
+
+| Training Data | dev-clean | dev-other | test-clean | test-other |
+|---------------|-----------|-----------|------------|------------|
+| 100h          | ~4.3%     | ~9.4%     | ~4.6%      | ~9.5%      |
+| 960h          | ~3.4%     | ~6.6%     | ~3.8%      | ~6.8%      |
+
+*Note: Results may vary slightly due to random initialization and hardware differences.*
+
+## Device Support
+
+The code automatically detects and uses the best available device:
+
+1. **CUDA** - NVIDIA GPUs (recommended for training)
+2. **MPS** - Apple Silicon Macs (M1/M2/M3)
+3. **CPU** - Fallback option (slow)
+
+Use the `device.prefer` config option to force a specific device:
+```yaml
+device:
+  prefer: "cuda"  # or "mps" or "cpu" or "auto"
+```
+
+## Technical Details
+
+### Architecture
+
+- **Model**: HuBERT-Base (90M parameters)
+- **Loss**: Connectionist Temporal Classification (CTC)
+- **Decoding**: Greedy CTC decoding
+- **Metric**: Word Error Rate (WER)
+
+### Training Strategy
+
+Following the HuBERT paper:
+1. Start from pre-trained HuBERT model
+2. Freeze the CNN feature encoder
+3. Fine-tune transformer layers with CTC head
+4. Use AdamW optimizer with linear warmup
+
+## References
+
+- [HuBERT Paper](https://arxiv.org/abs/2106.07447): Hsu et al., "HuBERT: Self-Supervised Speech Representation Learning by Masked Prediction of Hidden Units"
+- [HuggingFace Model](https://huggingface.co/facebook/hubert-base-ls960)
+- [LibriSpeech Dataset](https://www.openslr.org/12)
+
+## Authors
+
+- Gal Barak (211699707)
+- Adam Fleisher (211603469)
+- Ilia Benkovitch (316857820)
+
+## License
+
+This project is for educational purposes as part of a course assignment.

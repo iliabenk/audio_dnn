@@ -1,0 +1,58 @@
+# HuBERT ASR Fine-tuning - GPU Configuration
+# Optimized for large GPUs (24GB+ VRAM, e.g., A100, V100, RTX 4090)
+
+# ============== Model ==============
+model:
+  name: "facebook/hubert-base-ls960"
+  freeze_feature_encoder: true
+  attention_dropout: 0.1
+  hidden_dropout: 0.1
+  feat_proj_dropout: 0.0
+  layerdrop: 0.1
+
+# ============== Dataset ==============
+dataset:
+  name: "librispeech_asr"
+  subset: "clean"
+  train_split: "train.100"
+  cache_dir: null
+
+# ============== Audio Processing ==============
+audio:
+  sampling_rate: 16000
+  max_duration_sec: 20.0
+  min_duration_sec: 0.5
+
+# ============== Training ==============
+training:
+  output_dir: "./outputs/hubert-gpu"
+  num_train_epochs: 30
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 2
+  learning_rate: 3.0e-5
+  warmup_steps: 500
+  weight_decay: 0.005
+  fp16: true
+  logging_steps: 100
+  eval_steps: 500
+  save_steps: 500
+  save_total_limit: 3
+  load_best_model_at_end: true
+  metric_for_best_model: "wer"
+  greater_is_better: false
+  dataloader_num_workers: 8
+  seed: 42
+
+# ============== Evaluation ==============
+evaluation:
+  eval_splits:
+    - "validation.clean"
+    - "validation.other"
+  test_splits:
+    - "test.clean"
+    - "test.other"
+
+# ============== Device ==============
+device:
+  prefer: "cuda"
