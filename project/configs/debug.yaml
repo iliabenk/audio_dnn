@@ -47,9 +47,9 @@ training:
 # ============== Evaluation ==============
 evaluation:
   eval_splits:
-    - "validation.clean"
+    - "validation"
   test_splits:
-    - "test.clean"
+    - "test"
 
 # ============== Device ==============
 device:

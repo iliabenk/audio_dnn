@@ -1,8 +1,8 @@
 """LibriSpeech dataset loading and preprocessing."""
 
-from typing import Optional
+from typing import List, Optional
 
-from datasets import Audio, Dataset, DatasetDict, load_dataset
+from datasets import Audio, Dataset, load_dataset
 from transformers import Wav2Vec2Processor
 
 from ..config import AudioConfig, DatasetConfig
@@ -16,6 +16,7 @@ class LibriSpeechDataset:
         dataset_config: DatasetConfig,
         audio_config: AudioConfig,
         processor: Wav2Vec2Processor,
+        eval_splits: Optional[List[str]] = None,
     ):
         """Initialize LibriSpeech dataset loader.
 
@@ -23,21 +24,30 @@ class LibriSpeechDataset:
             dataset_config: Dataset configuration.
             audio_config: Audio processing configuration.
             processor: HuggingFace processor for feature extraction and tokenization.
+            eval_splits: List of evaluation splits to load (e.g., ["validation.clean"]).
         """
         self.dataset_config = dataset_config
         self.audio_config = audio_config
         self.processor = processor
-        self._dataset: Optional[DatasetDict] = None
+        self.eval_splits = eval_splits or ["validation"]
+        self._loaded_splits: dict = {}
 
-    def load_dataset(self) -> DatasetDict:
-        """Load LibriSpeech dataset from HuggingFace.
+    def _load_split(self, split: str) -> Dataset:
+        """Load a single split from LibriSpeech.
+
+        Args:
+            split: Split name (e.g., "train.100", "validation.clean").
 
         Returns:
-            DatasetDict containing train/validation/test splits.
+            Dataset for the specified split.
         """
+        if split in self._loaded_splits:
+            return self._loaded_splits[split]
+
         dataset = load_dataset(
             self.dataset_config.name,
             self.dataset_config.subset,
+            split=split,
             cache_dir=self.dataset_config.cache_dir,
             trust_remote_code=True,
         )
@@ -47,7 +57,7 @@ class LibriSpeechDataset:
             "audio", Audio(sampling_rate=self.audio_config.sampling_rate)
         )
 
-        self._dataset = dataset
+        self._loaded_splits[split] = dataset
         return dataset
 
     def prepare_dataset(self, dataset: Dataset) -> Dataset:
@@ -127,17 +137,8 @@ class LibriSpeechDataset:
         Returns:
             Preprocessed training dataset.
         """
-        if self._dataset is None:
-            self.load_dataset()
-
-        # Get the appropriate training split
         train_split = self.dataset_config.train_split
-        if train_split in self._dataset:
-            train_data = self._dataset[train_split]
-        else:
-            # Handle different split naming conventions
-            train_data = self._dataset["train"]
-
+        train_data = self._load_split(train_split)
         return self.prepare_dataset(train_data)
 
     def get_eval_dataset(self, split: str) -> Dataset:
@@ -149,19 +150,7 @@ class LibriSpeechDataset:
         Returns:
             Preprocessed evaluation dataset.
         """
-        if self._dataset is None:
-            self.load_dataset()
-
-        if split in self._dataset:
-            eval_data = self._dataset[split]
-        else:
-            # Try without the subset suffix
-            base_split = split.split(".")[0]
-            if base_split in self._dataset:
-                eval_data = self._dataset[base_split]
-            else:
-                raise ValueError(f"Split '{split}' not found in dataset")
-
+        eval_data = self._load_split(split)
         return self.prepare_dataset(eval_data)
 
     def get_all_eval_datasets(self, splits: list) -> dict:
