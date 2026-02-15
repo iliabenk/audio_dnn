@@ -32,6 +32,7 @@ project/
 │   └── utils/                # Utility modules
 │       └── device.py         # Device management
 ├── scripts/                  # Bash scripts with predefined configs
+│   ├── setup.sh              # Setup script (installs FFmpeg + deps)
 │   ├── train_debug.sh        # Quick debug training
 │   ├── train_gpu.sh          # GPU training
 │   ├── train_mac.sh          # Mac training
@@ -43,15 +44,37 @@ project/
 
 ## Installation
 
-1. Create a virtual environment:
+### Quick Setup (Recommended)
+
+```bash
+cd project
+./scripts/setup.sh
+```
+
+This installs FFmpeg (required for audio decoding) and all Python dependencies.
+
+### Manual Setup
+
+1. Install FFmpeg:
+```bash
+# macOS
+brew install ffmpeg
+
+# Ubuntu/Debian
+sudo apt-get install ffmpeg
+
+# Or via conda
+conda install -c conda-forge ffmpeg
+```
+
+2. Create a virtual environment:
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-2. Install dependencies:
+3. Install Python dependencies:
 ```bash
-cd project
 pip install -r requirements.txt
 ```
 

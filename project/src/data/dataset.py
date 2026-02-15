@@ -49,7 +49,6 @@ class LibriSpeechDataset:
             self.dataset_config.subset,
             split=split,
             cache_dir=self.dataset_config.cache_dir,
-            trust_remote_code=True,
         )
 
         # Cast audio column to correct sampling rate
