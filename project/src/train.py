@@ -5,26 +5,21 @@ HuBERT ASR Fine-tuning Training Script
 Fine-tune a pre-trained HuBERT model on LibriSpeech for ASR using CTC loss.
 
 Usage:
-    python scripts/train.py --config configs/default.yaml
-    python scripts/train.py --config configs/debug.yaml
-    python scripts/train.py --config configs/gpu.yaml --resume outputs/checkpoint-500
+    python -m src.train --config configs/default.yaml
+    python -m src.train --config configs/debug.yaml
+    python -m src.train --config configs/gpu.yaml --resume outputs/checkpoint-500
 """
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.config import Config
-from src.data.dataset import LibriSpeechDataset
-from src.evaluation.metrics import WERCalculator
-from src.model.hubert_ctc import HuBERTForASR
-from src.training.trainer import create_trainer
-from src.utils.device import DeviceManager
+from .config import Config
+from .data.dataset import LibriSpeechDataset
+from .evaluation.metrics import WERCalculator
+from .model.hubert_ctc import HuBERTForASR
+from .training.trainer import create_trainer
+from .utils.device import DeviceManager
 
 # Configure logging
 logging.basicConfig(

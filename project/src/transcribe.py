@@ -5,26 +5,19 @@ HuBERT ASR Transcription Script
 Transcribe audio files using a fine-tuned HuBERT model.
 
 Usage:
-    python scripts/transcribe.py --model outputs/hubert-finetuned/final --audio sample.wav
-    python scripts/transcribe.py --model outputs/final --audio file1.wav file2.wav file3.wav
+    python -m src.transcribe --model outputs/hubert-finetuned/final --audio sample.wav
+    python -m src.transcribe --model outputs/final --audio file1.wav file2.wav file3.wav
 """
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 
 import librosa
 import torch
-
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.utils.device import DeviceManager
-
-# Import transformers after path setup
 from transformers import HubertForCTC, Wav2Vec2Processor
+
+from .utils.device import DeviceManager
 
 # Configure logging
 logging.basicConfig(
@@ -82,7 +75,7 @@ def transcribe_audio(
         Transcribed text.
     """
     # Load and resample audio
-    audio, sr = librosa.load(audio_path, sr=sample_rate)
+    audio, _ = librosa.load(audio_path, sr=sample_rate)
 
     # Process audio
     inputs = processor(

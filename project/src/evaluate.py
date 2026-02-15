@@ -5,32 +5,25 @@ HuBERT ASR Evaluation Script
 Evaluate a fine-tuned HuBERT model on LibriSpeech test splits.
 
 Usage:
-    python scripts/evaluate.py --model outputs/hubert-finetuned/final --splits test.clean test.other
-    python scripts/evaluate.py --model outputs/hubert-finetuned/final --output results.json
+    python -m src.evaluate --model outputs/hubert-finetuned/final --splits test.clean test.other
+    python -m src.evaluate --model outputs/hubert-finetuned/final --output results.json
 """
 
 import argparse
 import json
 import logging
-import sys
 from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.config import AudioConfig, DatasetConfig
-from src.data.collator import CTCDataCollator
-from src.data.dataset import LibriSpeechDataset
-from src.evaluation.metrics import WERCalculator
-from src.utils.device import DeviceManager
-
-# Import transformers after path setup
 from transformers import HubertForCTC, Wav2Vec2Processor
+
+from .config import AudioConfig, DatasetConfig
+from .data.collator import CTCDataCollator
+from .data.dataset import LibriSpeechDataset
+from .evaluation.metrics import WERCalculator
+from .utils.device import DeviceManager
 
 # Configure logging
 logging.basicConfig(
