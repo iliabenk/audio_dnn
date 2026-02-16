@@ -15,7 +15,6 @@ class DeviceManager:
         Args:
             prefer: Device preference. Options:
                 - "auto": Automatically detect best available (CUDA > MPS > CPU)
-                - "auto_no_mps": Automatically detect (CUDA > CPU, skips MPS)
                 - "cuda": Force CUDA (raises error if unavailable)
                 - "mps": Force MPS (raises error if unavailable)
                 - "cpu": Force CPU
@@ -31,13 +30,6 @@ class DeviceManager:
                 return torch.device("cuda")
             elif torch.backends.mps.is_available():
                 return torch.device("mps")
-            else:
-                return torch.device("cpu")
-
-        elif prefer == "auto_no_mps":
-            # Skip MPS, use CUDA if available, otherwise CPU
-            if torch.cuda.is_available():
-                return torch.device("cuda")
             else:
                 return torch.device("cpu")
 
