@@ -1,4 +1,4 @@
-# To run: `source ./configs/bolt/h200_exports.sh && bolt task submit --interactive --tar . --config configs/bolt/bolt_config_8_gpus_h200.yaml`
+# To run: `bolt task submit --interactive --tar . --config configs/bolt/bolt_config_8_gpus_a2_ultra.yaml`
 
 # To connect with VSCode:
 # 1. Activate a conda env with coreflow installed (markai git)
@@ -39,18 +39,18 @@ resources:
   timeout: 14d
   num_cpus: 96
   num_gpus: 8
-  disk_gb: 4800
-  memory_gb: 1100
-  cluster: "aws_3"
+  disk_gb: 3000
+  memory_gb: 1300
+  cluster: "gcp_2"
   docker_image: docker.apple.com/iris/iris:2.18.4
 
-#tags:
-#  - MarkRL
+# tags:
+#   - MarkRL
 
 priority: 1
 cluster_options:
-  aws:
-    instance_type: p4d.24xlarge
+  gcp:
+    instance_type: a2-ultragpu-8g
 dev_flags:
   KUBE_CLUSTER_ROUTABLE: 1
   BOLT_DEV_TOLERATIONS: >-
