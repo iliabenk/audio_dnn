@@ -1,8 +1,8 @@
 #!/bin/bash
 # Train HuBERT ASR model with GPU configuration
 # Optimized for large GPUs (24GB+ VRAM)
+# Run from repository root: ./project/scripts/train_gpu.sh
 
 set -e
-cd "$(dirname "$0")/.."
 
-python -m src.train --config configs/gpu.yaml "$@"
+python -m project.src.train --config project/configs/gpu.yaml "$@"

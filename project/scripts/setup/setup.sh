@@ -1,6 +1,7 @@
 #!/bin/bash
 # Setup script for HuBERT ASR Fine-tuning
 # Installs system dependencies and Python packages
+# Run from repository root: ./project/scripts/setup/setup.sh
 
 set -e
 
@@ -45,12 +46,12 @@ fi
 # Install Python dependencies
 echo ""
 echo "Installing Python dependencies..."
-pip install -r requirements.txt
+pip install -r project/requirements.txt
 
 # Try to install apple-bolt (optional - to run on Bolt)
 echo ""
 echo "Attempting to install apple-bolt (optional)..."
-pip install apple-bolt 2>/dev/null || echo "Note: apple-bolt not installed (optional, only needed fto run on Bolt)"
+pip install apple-bolt 2>/dev/null || echo "Note: apple-bolt not installed (optional, only needed to run on Bolt)"
 
 # Verify installation
 echo ""
@@ -73,4 +74,4 @@ else:
 
 echo ""
 echo "=== Setup Complete ==="
-echo "Run training with: ./scripts/train_debug.sh"
+echo "Run training with: ./project/scripts/train_debug.sh"

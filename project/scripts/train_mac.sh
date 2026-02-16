@@ -1,8 +1,8 @@
 #!/bin/bash
 # Train HuBERT ASR model with Mac configuration
 # Optimized for Apple Silicon with MPS
+# Run from repository root: ./project/scripts/train_mac.sh
 
 set -e
-cd "$(dirname "$0")/.."
 
-python -m src.train --config configs/mac.yaml "$@"
+python -m project.src.train --config project/configs/mac.yaml "$@"

@@ -1,4 +1,4 @@
-# To run: `source ./configs/bolt/h200_exports.sh && bolt task submit --interactive --tar . --config configs/bolt/bolt_config_8_gpus_h200.yaml`
+# To run: `source ./project/configs/bolt/h200_exports.sh && bolt task submit --interactive --tar . --config project/configs/bolt/bolt_config_8_gpus_h200.yaml`
 
 # To connect with VSCode:
 # 1. Activate a conda env with coreflow installed (markai git)
@@ -14,9 +14,9 @@
 #            "name": "main.py",
 #            "type": "debugpy",
 #            "request": "launch",
-#            "program": "${workspaceFolder}/src/main.py",
+#            "program": "${workspaceFolder}/project/src/main.py",
 #            "console": "integratedTerminal",
-#            "args": "configs/train/example.yaml",
+#            "args": "project/configs/train/example.yaml",
 #            "env": {
 #                "PYTHONPATH": "${workspaceFolder}"
 #            }
@@ -26,8 +26,8 @@
 
 name: "Training Development"
 
-setup_command: "bash ./scripts/setup.sh"
-command: "source activate iris && bash ./scripts/train_debug.sh"
+setup_command: "bash ./project/scripts/setup/setup.sh && bash ./project/scripts/setup/setup_interactive_git.sh"
+command: "source activate iris && bash ./project/scripts/train_debug.sh"
 
 permissions:
   viewers: "ibenkovitch"
