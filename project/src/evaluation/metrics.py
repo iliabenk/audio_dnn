@@ -82,15 +82,15 @@ class WERCalculator:
         # Compute WER
         wer = jiwer.wer(list(references), list(predictions))
 
-        # Compute detailed measures
-        measures = jiwer.compute_measures(list(references), list(predictions))
+        # Compute detailed measures using process_words (newer jiwer API)
+        output = jiwer.process_words(list(references), list(predictions))
 
         return {
             "wer": wer,
-            "substitutions": measures["substitutions"],
-            "insertions": measures["insertions"],
-            "deletions": measures["deletions"],
-            "hits": measures["hits"],
+            "substitutions": output.substitutions,
+            "insertions": output.insertions,
+            "deletions": output.deletions,
+            "hits": output.hits,
         }
 
     def compute_metrics_for_trainer(self, pred) -> Dict[str, float]:
