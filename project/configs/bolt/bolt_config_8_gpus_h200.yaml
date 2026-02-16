@@ -26,7 +26,7 @@
 
 name: "Training Development"
 
-setup_command: "bash ./project/scripts/setup/setup.sh && bash ./project/scripts/setup/setup_interactive_git.sh"
+setup_command: "source activate iris && bash ./project/scripts/setup/setup.sh && bash ./project/scripts/setup/setup_interactive_git.sh"
 command: "source activate iris && bash ./project/scripts/train_debug.sh"
 
 permissions:

@@ -1,5 +1,6 @@
 """LibriSpeech dataset loading and preprocessing."""
 
+import os
 from typing import List, Optional
 
 from datasets import Audio, Dataset, load_dataset
@@ -17,6 +18,7 @@ class LibriSpeechDataset:
         audio_config: AudioConfig,
         processor: Wav2Vec2Processor,
         eval_splits: Optional[List[str]] = None,
+        num_proc: Optional[int] = None,
     ):
         """Initialize LibriSpeech dataset loader.
 
@@ -25,12 +27,20 @@ class LibriSpeechDataset:
             audio_config: Audio processing configuration.
             processor: HuggingFace processor for feature extraction and tokenization.
             eval_splits: List of evaluation splits to load (e.g., ["validation.clean"]).
+            num_proc: Number of processes for dataset mapping. Defaults to number of CPUs.
         """
         self.dataset_config = dataset_config
         self.audio_config = audio_config
         self.processor = processor
         self.eval_splits = eval_splits or ["validation"]
         self._loaded_splits: dict = {}
+
+        # Set number of processes for parallel mapping
+        if num_proc is None:
+            # Use all available CPUs, but cap at 16 to avoid memory issues
+            self.num_proc = min(os.cpu_count() or 1, 16)
+        else:
+            self.num_proc = num_proc
 
     def _load_split(self, split: str) -> Dataset:
         """Load a single split from LibriSpeech.
@@ -68,18 +78,22 @@ class LibriSpeechDataset:
         Returns:
             Preprocessed dataset ready for training.
         """
-        # Filter by duration
+        # Filter by duration (can use multiprocessing)
         dataset = dataset.filter(
             self._filter_by_duration,
+            num_proc=self.num_proc,
             desc="Filtering by duration",
         )
 
         # Preprocess: extract features and tokenize transcriptions
+        # Use batched processing for better performance
         dataset = dataset.map(
-            self._preprocess_function,
+            self._preprocess_function_batched,
             remove_columns=dataset.column_names,
+            batched=True,
+            batch_size=100,
+            num_proc=self.num_proc,
             desc="Preprocessing",
-            num_proc=1,  # Processor not picklable, use single process
         )
 
         return dataset
@@ -101,37 +115,36 @@ class LibriSpeechDataset:
             <= self.audio_config.max_duration_sec
         )
 
-    def _preprocess_function(self, example: dict) -> dict:
-        """Preprocess a single example: extract features and tokenize.
+    def _preprocess_function_batched(self, examples: dict) -> dict:
+        """Preprocess a batch of examples: extract features and tokenize.
 
         Args:
-            example: Dataset example with audio and text.
+            examples: Batch of dataset examples with audio and text.
 
         Returns:
-            Preprocessed example with input_values and labels.
+            Preprocessed batch with input_values and labels.
         """
-        audio = example["audio"]
+        # Extract audio arrays
+        audio_arrays = [audio["array"] for audio in examples["audio"]]
+        sampling_rates = [audio["sampling_rate"] for audio in examples["audio"]]
 
-        # Extract input features from audio
+        # Process all audio in batch
         inputs = self.processor(
-            audio["array"],
-            sampling_rate=audio["sampling_rate"],
+            audio_arrays,
+            sampling_rate=sampling_rates[0],  # All should be same rate
             return_tensors=None,
+            padding=False,
         )
 
-        # Tokenize transcription
+        # Tokenize all transcriptions in batch
         labels = self.processor.tokenizer(
-            example["text"],
+            examples["text"],
             return_tensors=None,
+            padding=False,
         )
-
-        # input_values comes as nested list [[...]], flatten to 1D list
-        input_values = inputs["input_values"]
-        if isinstance(input_values, list) and len(input_values) == 1:
-            input_values = input_values[0]
 
         return {
-            "input_values": input_values,
+            "input_values": inputs["input_values"],
             "labels": labels["input_ids"],
         }
 
