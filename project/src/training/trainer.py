@@ -122,7 +122,7 @@ class ASRTrainerSetup:
             eval_dataset=eval_dataset,
             data_collator=data_collator,
             compute_metrics=self.compute_metrics,
-            tokenizer=self.processor.feature_extractor,
+            processing_class=self.processor.feature_extractor,
         )
 
         return trainer
