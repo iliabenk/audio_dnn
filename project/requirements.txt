@@ -25,3 +25,5 @@ tqdm>=4.65.0
 
 # Logging & Visualization
 tensorboard>=2.14.0
+
+torchcodec

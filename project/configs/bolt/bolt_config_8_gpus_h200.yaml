@@ -1,0 +1,89 @@
+# To run: `source ./configs/bolt/h200_exports.sh && bolt task submit --interactive --tar . --config configs/bolt/bolt_config_8_gpus_h200.yaml`
+
+# To connect with VSCode:
+# 1. Activate a conda env with coreflow installed (markai git)
+# 2. cd <markai_dir>
+# 3. coreflow src.main vscode <bolt_id>
+# 4. source activate iris
+
+# Example launch.json to run in debug mode:
+#{
+#    "version": "0.2.0",
+#    "configurations": [
+#        {
+#            "name": "main.py",
+#            "type": "debugpy",
+#            "request": "launch",
+#            "program": "${workspaceFolder}/src/main.py",
+#            "console": "integratedTerminal",
+#            "args": "configs/train/example.yaml",
+#            "env": {
+#                "PYTHONPATH": "${workspaceFolder}"
+#            }
+#        }
+#    ]
+#}
+
+name: "HuBERT Training"
+
+setup_command: "bash ./scripts/setup.sh"
+command: "source activate iris && bash ./scripts/train_debug.sh"
+
+permissions:
+  viewers: "markai"
+
+project_id: "hwt_bolt_training_access"
+
+resources:
+  task_type: 8gpu
+  timeout: 14d
+  num_cpus: 192
+  num_gpus: 8
+  disk_gb: 30000
+  memory_gb: 3152
+  cluster: "kube_v2_us_central_2a"
+  docker_image: docker.apple.com/iris/iris:2.18.4
+
+tags:
+  - MarkRL
+
+priority: 1
+cluster_options:
+  kube_v2:
+    instance_type: h200-gen1
+dev_flags:
+  KUBE_CLUSTER_ROUTABLE: 1
+  BOLT_DEV_TOLERATIONS: >-
+    aci.apple.com/adb-outofservice,npd.aci.apple.com/nodeuok-unhealthy,npd.aci.apple.com/os-unhealthy,npd.aci.apple.com/cst-pressure,bolt.apple.com/capacity-validation,bolt.apple.com/node-health,aci.apple.com/new-node,npd.aci.apple.com/nodeuok-unhealthy,maintenance.kube.apple.com/pending-maintenance,maintenance.kube.apple.com/maintenance-unhealthy,npd.aci.apple.com/scriptexporter-unhealthy,aci.apple.com/adb-outofservice,handoff.kube.apple.com/out-of-service
+
+environment_variables:
+  IRISCTL_ALIVENESS_CHECK_INTERVAL: '1200'
+  IRISCTL_DISABLE_BOLT_PREFLIGHT_GPU_CHECK: 1
+  BOLT_DEV_KUBE_CLUSTER_ROUTABLE: "1"
+  BOLT_DEV_ENABLE_ROCE_MULTUS_MULTINIC: "1"
+  BOLT_DEV_TOLERATIONS: "aci.apple.com/adb-outofservice,npd.aci.apple.com/nodeuok-unhealthy,node.kubernetes.io/unschedulable,npd.aci.apple.com/os-unhealthy,npd.aci.apple.com/cst-pressure,bolt.apple.com/capacity-validation,bolt.apple.com/node-health,aci.apple.com/new-node,npd.aci.apple.com/nodeuok-unhealthy,maintenance.kube.apple.com/pending-maintenance,maintenance.kube.apple.com/maintenance-unhealthy,npd.aci.apple.com/scriptexporter-unhealthy,aci.apple.com/adb-outofservice,handoff.kube.apple.com/out-of-service"
+  IRIS_DISTRIBUTED_TIMEOUT: "86399"
+  IRIS_TORCH_DISTRIBUTED_TIMEOUT: "7200"
+  COREFLOW_CONTROLLER_ASYNC_CHECKPOINTING: "1"
+  COREFLOW_LAZY_DOWNLOAD: "1"
+  CORETORCH_NO_CUDA_IN_DATALOADERS: "1"
+  NCCL_IB_GID_INDEX: "5"
+  NCCL_IB_HCA: "mlx5_0,mlx5_3,mlx5_4,mlx5_5,mlx5_6,mlx5_7,mlx5_8,mlx5_9"
+  NCCL_IB_DISABLE: "0"
+  NCCL_SOCKET_IFNAME: "eth0"
+  NCCL_CROSS_NIC: "0"
+  NCCL_DEBUG: "INFO"
+  UCX_NET_DEVICES: "mlx5_0:1,mlx5_3:1,mlx5_4:1,mlx5_5:1,mlx5_6:1,mlx5_7:1,mlx5_8:1,mlx5_9:1"
+  NCCL_IGNORE_CPU_AFFINITY: "1"
+  NCCL_ALGO: "Ring"
+  NCCL_PROTO: "Simple"
+  NCCL_MIN_NCHANNELS: "8"
+  NCCL_DYNAMIC_CHUNK_SIZE: "524288"
+  NCCL_P2P_NET_CHUNKSIZE: "524288"
+  NCCL_P2P_PCI_CHUNKSIZE: "524288"
+  NCCL_P2P_NVL_CHUNKSIZE: "1048576"
+  NCCL_BUFFSIZE: "8388608"
+  NCCL_NET_GDR_LEVEL: "PIX"
+  NCCL_IB_PCI_RELAXED_ORDERING: "1"
+  NCCL_IB_SPLIT_DATA_ON_QPS: "0"
+  NCCL_IB_QPS_PER_CONNECTION: "8"

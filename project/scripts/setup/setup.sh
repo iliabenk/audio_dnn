@@ -45,6 +45,11 @@ echo ""
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
+# Try to install apple-bolt (optional - to run on Bolt)
+echo ""
+echo "Attempting to install apple-bolt (optional)..."
+pip install apple-bolt 2>/dev/null || echo "Note: apple-bolt not installed (optional, only needed fto run on Bolt)"
+
 # Verify installation
 echo ""
 echo "=== Verifying Installation ==="

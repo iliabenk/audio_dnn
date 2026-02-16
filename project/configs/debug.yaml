@@ -53,4 +53,4 @@ evaluation:
 
 # ============== Device ==============
 device:
-  prefer: "auto"
+  prefer: "auto_no_mps"
