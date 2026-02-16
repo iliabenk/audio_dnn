@@ -125,8 +125,13 @@ class LibriSpeechDataset:
             return_tensors=None,
         )
 
+        # input_values comes as nested list [[...]], flatten to 1D list
+        input_values = inputs["input_values"]
+        if isinstance(input_values, list) and len(input_values) == 1:
+            input_values = input_values[0]
+
         return {
-            "input_values": inputs["input_values"],
+            "input_values": input_values,
             "labels": labels["input_ids"],
         }
 
