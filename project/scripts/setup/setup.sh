@@ -25,16 +25,18 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
     # Install FFmpeg
     echo "Installing FFmpeg..."
-    if command -v apt-get &> /dev/null; then
+    if command -v conda &> /dev/null; then
+        conda install -y -c conda-forge ffmpeg
+    elif command -v apt-get &> /dev/null && command -v sudo &> /dev/null; then
         sudo apt-get update
         sudo apt-get install -y ffmpeg
-    elif command -v yum &> /dev/null; then
+    elif command -v yum &> /dev/null && command -v sudo &> /dev/null; then
         sudo yum install -y ffmpeg
-    elif command -v conda &> /dev/null; then
-        conda install -y -c conda-forge ffmpeg
+    elif command -v ffmpeg &> /dev/null; then
+        echo "FFmpeg already installed."
     else
-        echo "Warning: Could not install FFmpeg automatically."
-        echo "Please install FFmpeg manually for your distribution."
+        echo "Warning: Could not install FFmpeg automatically (no sudo/conda)."
+        echo "FFmpeg may already be available, or install it manually."
     fi
 else
     echo "Warning: Unknown OS. Please install FFmpeg manually."
