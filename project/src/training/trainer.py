@@ -59,7 +59,6 @@ class ASRTrainerSetup:
 
         # Determine device settings for TrainingArguments
         use_cpu = self.device.type == "cpu"
-        use_mps = self.device.type == "mps"
 
         # Create output directory
         output_dir = Path(self.config.output_dir)
@@ -93,7 +92,6 @@ class ASRTrainerSetup:
             length_column_name="input_length",
             # Device settings - explicitly control device selection
             use_cpu=use_cpu,
-            use_mps_device=use_mps,
         )
 
     def get_data_collator(self):
