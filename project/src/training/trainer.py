@@ -57,6 +57,10 @@ class ASRTrainerSetup:
         # Check if FP16 is supported on this device
         use_fp16 = self.config.fp16 and DeviceManager.is_fp16_supported(self.device)
 
+        # Determine device settings for TrainingArguments
+        use_cpu = self.device.type == "cpu"
+        use_mps = self.device.type == "mps"
+
         # Create output directory
         output_dir = Path(self.config.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -87,6 +91,9 @@ class ASRTrainerSetup:
             # Group samples by length for efficient batching
             group_by_length=True,
             length_column_name="input_length",
+            # Device settings - explicitly control device selection
+            use_cpu=use_cpu,
+            use_mps_device=use_mps,
         )
 
     def get_data_collator(self):
