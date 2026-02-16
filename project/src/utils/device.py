@@ -1,5 +1,6 @@
 """Device detection and management utilities."""
 
+import os
 from typing import Any, Dict
 
 import torch
@@ -7,6 +8,16 @@ import torch
 
 class DeviceManager:
     """Handle device detection and configuration for training."""
+
+    @staticmethod
+    def _is_mps_available() -> bool:
+        """Check if MPS is available and enabled.
+
+        Respects PYTORCH_MPS_ENABLED environment variable.
+        """
+        if os.environ.get("PYTORCH_MPS_ENABLED", "1") == "0":
+            return False
+        return torch.backends.mps.is_available()
 
     @staticmethod
     def get_device(prefer: str = "auto") -> torch.device:
@@ -29,7 +40,7 @@ class DeviceManager:
         if prefer == "auto":
             if torch.cuda.is_available():
                 return torch.device("cuda")
-            elif torch.backends.mps.is_available():
+            elif DeviceManager._is_mps_available():
                 return torch.device("mps")
             else:
                 return torch.device("cpu")
@@ -47,7 +58,7 @@ class DeviceManager:
             return torch.device("cuda")
 
         elif prefer == "mps":
-            if not torch.backends.mps.is_available():
+            if not DeviceManager._is_mps_available():
                 raise RuntimeError("MPS requested but not available")
             return torch.device("mps")
 
