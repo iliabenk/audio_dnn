@@ -19,11 +19,12 @@ class WERCalculator:
         self.processor = processor
 
         # Text normalization transformation
+        # Note: We don't remove punctuation because apostrophes are valid
+        # characters in our vocabulary (e.g., "don't", "it's")
         self.transformation = jiwer.Compose([
             jiwer.ToLowerCase(),
             jiwer.RemoveMultipleSpaces(),
             jiwer.Strip(),
-            jiwer.RemovePunctuation(),
         ])
 
     def decode_predictions(self, logits: np.ndarray) -> List[str]:
