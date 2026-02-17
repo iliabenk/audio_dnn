@@ -10,6 +10,10 @@ Usage:
     python -m src.train --config configs/gpu.yaml --resume outputs/checkpoint-500
 """
 
+import os
+# Disable TorchCodec to avoid FFmpeg compatibility issues - use soundfile instead
+os.environ["HF_AUDIO_DECODER"] = "soundfile"
+
 import argparse
 import logging
 from pathlib import Path

@@ -9,6 +9,10 @@ Usage:
     python -m src.evaluate --model outputs/hubert-finetuned/final --output results.json
 """
 
+import os
+# Disable TorchCodec to avoid FFmpeg compatibility issues - use soundfile instead
+os.environ["HF_AUDIO_DECODER"] = "soundfile"
+
 import argparse
 import json
 import logging
