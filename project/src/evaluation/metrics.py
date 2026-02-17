@@ -109,12 +109,20 @@ class WERCalculator:
         pred_ids = np.argmax(pred_logits, axis=-1)
 
         # Replace -100 with pad token id for proper decoding
-        label_ids = pred.label_ids
+        label_ids = pred.label_ids.copy()  # Don't modify original
         label_ids[label_ids == -100] = self.processor.tokenizer.pad_token_id
 
         # Decode predictions and labels
         predictions = self.processor.batch_decode(pred_ids)
         references = self.processor.batch_decode(label_ids, group_tokens=False)
+
+        # Debug: print first 3 samples to diagnose WER issues
+        print("\n" + "=" * 50)
+        print("DEBUG: Sample predictions vs references")
+        for i in range(min(3, len(predictions))):
+            print(f"  [{i}] PRED: '{predictions[i][:100]}'")
+            print(f"  [{i}] REF:  '{references[i][:100]}'")
+        print("=" * 50 + "\n")
 
         # Compute WER
         metrics = self.compute_wer(predictions, references)
