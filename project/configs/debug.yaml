@@ -13,7 +13,7 @@ model:
 # ============== Dataset ==============
 dataset:
   name: "librispeech_asr"
-  subset: "all"
+  subset: "clean"  # Default fallback for unqualified split names
   train_split: "train.clean.100"
   cache_dir: null
 

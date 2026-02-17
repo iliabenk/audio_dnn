@@ -56,7 +56,8 @@ class LibriSpeechDataset:
         """Load a single split from LibriSpeech.
 
         Args:
-            split: Split name (e.g., "train.100", "validation.clean").
+            split: Split name (e.g., "train.clean.100", "validation.clean", "test.other").
+                   Supports both qualified names (validation.clean) and simple names (validation).
 
         Returns:
             Dataset for the specified split.
@@ -64,10 +65,24 @@ class LibriSpeechDataset:
         if split in self._loaded_splits:
             return self._loaded_splits[split]
 
+        # Infer subset from split name to avoid downloading entire dataset
+        # e.g., "validation.clean" -> subset="clean", actual_split="validation"
+        # e.g., "train.clean.100" -> subset="clean", actual_split="train.100"
+        if ".clean" in split:
+            subset = "clean"
+            actual_split = split.replace(".clean", "")
+        elif ".other" in split:
+            subset = "other"
+            actual_split = split.replace(".other", "")
+        else:
+            # Use configured subset for unqualified split names
+            subset = self.dataset_config.subset
+            actual_split = split
+
         dataset = load_dataset(
             self.dataset_config.name,
-            self.dataset_config.subset,
-            split=split,
+            subset,
+            split=actual_split,
             cache_dir=self.dataset_config.cache_dir,
         )
 
