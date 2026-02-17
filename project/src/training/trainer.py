@@ -1,6 +1,5 @@
 """HuggingFace Trainer setup for HuBERT ASR fine-tuning."""
 
-import os
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -95,9 +94,6 @@ class ASRTrainerSetup:
             seed=self.config.seed,
             report_to=["tensorboard"],
             push_to_hub=False,
-            # Group samples by length for efficient batching
-            group_by_length=True,
-            length_column_name="input_length",
             # Device settings - explicitly control device selection
             use_cpu=use_cpu,
         )
@@ -120,24 +116,6 @@ class ASRTrainerSetup:
         training_args = self.get_training_args()
         data_collator = self.get_data_collator()
 
-        # Add input_length column for group_by_length
-        def add_length_column(example):
-            example["input_length"] = len(example["input_values"])
-            return example
-
-        # Determine num_proc based on distributed training context
-        local_rank = os.environ.get("LOCAL_RANK")
-        world_size = int(os.environ.get("WORLD_SIZE", "1"))
-        if local_rank is not None:
-            # Distributed: divide workers among ranks
-            total_cpus = os.cpu_count() or 1
-            num_proc = max(1, total_cpus // world_size)
-        else:
-            num_proc = min(os.cpu_count() or 1, 16)
-
-        train_dataset = self.train_dataset.map(add_length_column, num_proc=num_proc)
-        eval_dataset = self.eval_dataset.map(add_length_column, num_proc=num_proc)
-
         # Build callbacks list
         callbacks: List[TrainerCallback] = []
         bolt_callback = get_bolt_callback()
@@ -147,8 +125,8 @@ class ASRTrainerSetup:
         trainer = Trainer(
             model=self.model,
             args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.eval_dataset,
             data_collator=data_collator,
             compute_metrics=self.compute_metrics,
             processing_class=self.processor.feature_extractor,
