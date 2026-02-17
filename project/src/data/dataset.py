@@ -36,9 +36,19 @@ class LibriSpeechDataset:
         self._loaded_splits: dict = {}
 
         # Set number of processes for parallel mapping
+        # In distributed training, reduce num_proc to avoid resource exhaustion
         if num_proc is None:
-            # Use all available CPUs, but cap at 16 to avoid memory issues
-            self.num_proc = min(os.cpu_count() or 1, 16)
+            local_rank = os.environ.get("LOCAL_RANK")
+            if local_rank is not None:
+                # Distributed training: use fewer workers to avoid resource issues
+                # Only rank 0 uses multiprocessing, others use single process
+                if int(local_rank) == 0:
+                    self.num_proc = min(os.cpu_count() or 1, 8)
+                else:
+                    self.num_proc = 1
+            else:
+                # Single process training: use all available CPUs, cap at 16
+                self.num_proc = min(os.cpu_count() or 1, 16)
         else:
             self.num_proc = num_proc
 

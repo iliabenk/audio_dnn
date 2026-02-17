@@ -125,7 +125,14 @@ class ASRTrainerSetup:
             example["input_length"] = len(example["input_values"])
             return example
 
-        num_proc = min(os.cpu_count() or 1, 16)
+        # Determine num_proc based on distributed training context
+        local_rank = os.environ.get("LOCAL_RANK")
+        if local_rank is not None:
+            # Distributed: reduce workers to avoid resource exhaustion
+            num_proc = min(os.cpu_count() or 1, 8) if int(local_rank) == 0 else 1
+        else:
+            num_proc = min(os.cpu_count() or 1, 16)
+
         train_dataset = self.train_dataset.map(add_length_column, num_proc=num_proc)
         eval_dataset = self.eval_dataset.map(add_length_column, num_proc=num_proc)
 
