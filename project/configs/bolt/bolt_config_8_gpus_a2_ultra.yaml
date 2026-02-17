@@ -1,4 +1,4 @@
-# To run: `bolt task submit --interactive --tar . --config configs/bolt/bolt_config_8_gpus_a2_ultra.yaml`
+# To run: `bolt task submit --interactive --tar . --config project/configs/bolt/bolt_config_8_gpus_a2_ultra.yaml`
 
 # To connect with VSCode:
 # 1. Activate a conda env with coreflow installed (markai git)
