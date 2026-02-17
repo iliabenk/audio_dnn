@@ -1,5 +1,6 @@
 """HuggingFace Trainer setup for HuBERT ASR fine-tuning."""
 
+import os
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -124,8 +125,9 @@ class ASRTrainerSetup:
             example["input_length"] = len(example["input_values"])
             return example
 
-        train_dataset = self.train_dataset.map(add_length_column)
-        eval_dataset = self.eval_dataset.map(add_length_column)
+        num_proc = min(os.cpu_count() or 1, 16)
+        train_dataset = self.train_dataset.map(add_length_column, num_proc=num_proc)
+        eval_dataset = self.eval_dataset.map(add_length_column, num_proc=num_proc)
 
         # Build callbacks list
         callbacks: List[TrainerCallback] = []
