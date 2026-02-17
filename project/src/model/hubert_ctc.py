@@ -121,6 +121,7 @@ class HuBERTForASR:
             self.config.name,
             config=model_config,
             ignore_mismatched_sizes=True,  # For different vocab size
+            use_safetensors=True,  # Use safetensors to avoid torch.load security issue
         )
 
         # Freeze feature encoder if configured
