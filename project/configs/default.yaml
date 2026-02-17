@@ -13,8 +13,8 @@ model:
 # ============== Dataset ==============
 dataset:
   name: "librispeech_asr"
-  subset: "clean"
-  train_split: "train.100"
+  subset: "all"
+  train_split: "train.clean.100"
   cache_dir: null
 
 # ============== Audio Processing ==============
