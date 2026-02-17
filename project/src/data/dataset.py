@@ -160,8 +160,10 @@ class LibriSpeechDataset:
         )
 
         # Tokenize all transcriptions in batch
+        # LibriSpeech text is uppercase, but our vocab is lowercase
+        texts = [text.lower() for text in examples["text"]]
         labels = self.processor.tokenizer(
-            examples["text"],
+            texts,
             return_tensors=None,
             padding=False,
         )
