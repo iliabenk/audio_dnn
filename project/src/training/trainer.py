@@ -127,9 +127,11 @@ class ASRTrainerSetup:
 
         # Determine num_proc based on distributed training context
         local_rank = os.environ.get("LOCAL_RANK")
+        world_size = int(os.environ.get("WORLD_SIZE", "1"))
         if local_rank is not None:
-            # Distributed: reduce workers to avoid resource exhaustion
-            num_proc = min(os.cpu_count() or 1, 8) if int(local_rank) == 0 else 1
+            # Distributed: divide workers among ranks
+            total_cpus = os.cpu_count() or 1
+            num_proc = max(1, total_cpus // world_size)
         else:
             num_proc = min(os.cpu_count() or 1, 16)
 

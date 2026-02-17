@@ -39,13 +39,11 @@ class LibriSpeechDataset:
         # In distributed training, reduce num_proc to avoid resource exhaustion
         if num_proc is None:
             local_rank = os.environ.get("LOCAL_RANK")
+            world_size = int(os.environ.get("WORLD_SIZE", "1"))
             if local_rank is not None:
-                # Distributed training: use fewer workers to avoid resource issues
-                # Only rank 0 uses multiprocessing, others use single process
-                if int(local_rank) == 0:
-                    self.num_proc = min(os.cpu_count() or 1, 8)
-                else:
-                    self.num_proc = 1
+                # Distributed training: divide workers among ranks to avoid exhaustion
+                total_cpus = os.cpu_count() or 1
+                self.num_proc = max(1, total_cpus // world_size)
             else:
                 # Single process training: use all available CPUs, cap at 16
                 self.num_proc = min(os.cpu_count() or 1, 16)
