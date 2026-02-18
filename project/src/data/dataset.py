@@ -103,26 +103,75 @@ class LibriSpeechDataset:
         Returns:
             Preprocessed dataset ready for training.
         """
-        # Only show progress on main process
+        import hashlib
+        import time
+        from pathlib import Path
+
         local_rank = os.environ.get("LOCAL_RANK")
         is_main_process = local_rank is None or int(local_rank) == 0
 
-        # Filter by duration
-        dataset = dataset.filter(
-            self._filter_by_duration,
-            num_proc=self.num_proc,
-            desc="Filtering by duration" if is_main_process else None,
-        )
+        # Create a unique marker based on dataset fingerprint
+        cache_dir = Path(self.dataset_config.cache_dir or os.path.expanduser("~/.cache/huggingface/datasets"))
+        dataset_id = hashlib.md5(f"{self.dataset_config.name}_{self.dataset_config.subset}".encode()).hexdigest()[:8]
+        marker_file = cache_dir / f".preprocessing_done_{dataset_id}"
 
-        # Preprocess: extract features and tokenize transcriptions
-        dataset = dataset.map(
-            self._preprocess_function_batched,
-            remove_columns=dataset.column_names,
-            batched=True,
-            batch_size=100,
-            num_proc=self.num_proc,
-            desc="Preprocessing" if is_main_process else None,
-        )
+        if local_rank is not None:
+            # DDP mode: coordinate preprocessing
+            if is_main_process:
+                # Rank 0: preprocess and create marker
+                marker_file.unlink(missing_ok=True)  # Remove stale marker
+
+                dataset = dataset.filter(
+                    self._filter_by_duration,
+                    num_proc=self.num_proc,
+                    desc="Filtering by duration",
+                )
+                dataset = dataset.map(
+                    self._preprocess_function_batched,
+                    remove_columns=dataset.column_names,
+                    batched=True,
+                    batch_size=100,
+                    num_proc=self.num_proc,
+                    desc="Preprocessing",
+                )
+
+                # Signal other ranks
+                marker_file.touch()
+            else:
+                # Other ranks: wait for rank 0 to finish, then load from cache
+                timeout = 3600  # 1 hour max wait
+                waited = 0
+                while not marker_file.exists() and waited < timeout:
+                    time.sleep(5)
+                    waited += 5
+
+                # Now process with num_proc=1 (should hit cache)
+                dataset = dataset.filter(
+                    self._filter_by_duration,
+                    num_proc=1,
+                )
+                dataset = dataset.map(
+                    self._preprocess_function_batched,
+                    remove_columns=dataset.column_names,
+                    batched=True,
+                    batch_size=100,
+                    num_proc=1,
+                )
+        else:
+            # Single process mode: just preprocess normally
+            dataset = dataset.filter(
+                self._filter_by_duration,
+                num_proc=self.num_proc,
+                desc="Filtering by duration",
+            )
+            dataset = dataset.map(
+                self._preprocess_function_batched,
+                remove_columns=dataset.column_names,
+                batched=True,
+                batch_size=100,
+                num_proc=self.num_proc,
+                desc="Preprocessing",
+            )
 
         return dataset
 
