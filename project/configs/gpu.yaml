@@ -26,14 +26,17 @@ audio:
 # ============== Training ==============
 training:
   output_dir: "./project/outputs/hubert-gpu"
-  num_train_epochs: 30
+  num_train_epochs: 100
   per_device_train_batch_size: 16
   per_device_eval_batch_size: 16
   gradient_accumulation_steps: 2
   learning_rate: 3.0e-5
+  lr_scheduler_type: "cosine"
+  lr_min: 5.0e-7  # Minimum LR at end of cosine decay (10% of initial)
   warmup_steps: 500
   weight_decay: 0.005
-  fp16: true
+  fp16: false
+  bf16: true
   logging_steps: 100
   eval_steps: 500
   save_steps: 500

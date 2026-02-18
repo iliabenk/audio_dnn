@@ -51,6 +51,9 @@ class TrainingConfig:
     warmup_steps: int = 500
     weight_decay: float = 0.005
     fp16: bool = True
+    bf16: bool = False
+    lr_scheduler_type: str = "linear"
+    lr_min: Optional[float] = None  # Minimum LR for cosine scheduler (defaults to 0)
     logging_steps: int = 100
     eval_steps: int = 500
     save_steps: int = 500
@@ -165,6 +168,9 @@ class Config:
                 "warmup_steps": self.training.warmup_steps,
                 "weight_decay": self.training.weight_decay,
                 "fp16": self.training.fp16,
+                "bf16": self.training.bf16,
+                "lr_scheduler_type": self.training.lr_scheduler_type,
+                "lr_min": self.training.lr_min,
                 "logging_steps": self.training.logging_steps,
                 "eval_steps": self.training.eval_steps,
                 "save_steps": self.training.save_steps,

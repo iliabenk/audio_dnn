@@ -1,5 +1,6 @@
 """Word Error Rate (WER) computation for ASR evaluation."""
 
+import os
 from typing import Dict, List
 
 import jiwer
@@ -116,13 +117,15 @@ class WERCalculator:
         predictions = self.processor.batch_decode(pred_ids)
         references = self.processor.batch_decode(label_ids, group_tokens=False)
 
-        # Debug: print first 3 samples to diagnose WER issues
-        print("\n" + "=" * 50)
-        print("DEBUG: Sample predictions vs references")
-        for i in range(min(3, len(predictions))):
-            print(f"  [{i}] PRED: '{predictions[i][:100]}'")
-            print(f"  [{i}] REF:  '{references[i][:100]}'")
-        print("=" * 50 + "\n")
+        # Debug: print first 3 samples (only on main process)
+        local_rank = os.environ.get("LOCAL_RANK")
+        if local_rank is None or int(local_rank) == 0:
+            print("\n" + "=" * 50)
+            print("DEBUG: Sample predictions vs references")
+            for i in range(min(3, len(predictions))):
+                print(f"  [{i}] PRED: '{predictions[i][:100]}'")
+                print(f"  [{i}] REF:  '{references[i][:100]}'")
+            print("=" * 50 + "\n")
 
         # Compute WER
         metrics = self.compute_wer(predictions, references)

@@ -61,8 +61,22 @@ class ASRTrainerSetup:
         Returns:
             Configured TrainingArguments for HuggingFace Trainer.
         """
-        # Check if FP16 is supported on this device
-        use_fp16 = self.config.fp16 and DeviceManager.is_fp16_supported(self.device)
+        # Determine precision settings
+        # bf16 requires CUDA with Ampere+ architecture (compute capability >= 8.0)
+        use_bf16 = False
+        use_fp16 = False
+
+        if self.device.type == "cuda":
+            if self.config.bf16:
+                # Check if bf16 is supported (Ampere+)
+                import torch
+                if torch.cuda.get_device_capability()[0] >= 8:
+                    use_bf16 = True
+                else:
+                    # Fall back to fp16 if bf16 not supported
+                    use_fp16 = self.config.fp16 and DeviceManager.is_fp16_supported(self.device)
+            else:
+                use_fp16 = self.config.fp16 and DeviceManager.is_fp16_supported(self.device)
 
         # Determine device settings for TrainingArguments
         use_cpu = self.device.type == "cpu"
@@ -75,6 +89,16 @@ class ASRTrainerSetup:
             output_dir = Path(self.config.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Determine LR scheduler settings
+        lr_scheduler_type = self.config.lr_scheduler_type
+        lr_scheduler_kwargs = {}
+
+        # If min LR is specified with cosine, use cosine_with_min_lr
+        if self.config.lr_min is not None:
+            if lr_scheduler_type == "cosine":
+                lr_scheduler_type = "cosine_with_min_lr"
+            lr_scheduler_kwargs["min_lr"] = self.config.lr_min
+
         return TrainingArguments(
             output_dir=str(output_dir),
             num_train_epochs=self.config.num_train_epochs,
@@ -82,9 +106,12 @@ class ASRTrainerSetup:
             per_device_eval_batch_size=self.config.per_device_eval_batch_size,
             gradient_accumulation_steps=self.config.gradient_accumulation_steps,
             learning_rate=self.config.learning_rate,
+            lr_scheduler_type=lr_scheduler_type,
+            lr_scheduler_kwargs=lr_scheduler_kwargs if lr_scheduler_kwargs else None,
             warmup_steps=self.config.warmup_steps,
             weight_decay=self.config.weight_decay,
             fp16=use_fp16,
+            bf16=use_bf16,
             logging_dir=str(output_dir / "logs"),
             logging_steps=self.config.logging_steps,
             eval_strategy="steps",
