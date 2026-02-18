@@ -1,7 +1,7 @@
 """HuggingFace Trainer setup for HuBERT ASR fine-tuning."""
 
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 import torch
 from datasets import Dataset
@@ -27,10 +27,11 @@ class ASRTrainerSetup:
         model: HubertForCTC,
         processor: Wav2Vec2Processor,
         train_dataset: Dataset,
-        eval_dataset: Dataset,
+        eval_datasets: Union[Dataset, Dict[str, Dataset]],
         config: TrainingConfig,
         device: torch.device,
         compute_metrics: Optional[Callable] = None,
+        metric_for_best_model: Optional[str] = None,
     ):
         """Initialize ASR trainer setup.
 
@@ -38,18 +39,21 @@ class ASRTrainerSetup:
             model: HuBERT model with CTC head.
             processor: Wav2Vec2 processor for tokenization.
             train_dataset: Prepared training dataset.
-            eval_dataset: Prepared evaluation dataset.
+            eval_datasets: Prepared evaluation dataset(s). Can be a single Dataset
+                or a dict mapping split names to datasets for multi-split eval.
             config: Training configuration.
             device: Compute device.
             compute_metrics: Optional function for computing metrics during eval.
+            metric_for_best_model: Override metric name for load_best_model_at_end.
         """
         self.model = model
         self.processor = processor
         self.train_dataset = train_dataset
-        self.eval_dataset = eval_dataset
+        self.eval_datasets = eval_datasets
         self.config = config
         self.device = device
         self.compute_metrics = compute_metrics
+        self.metric_for_best_model = metric_for_best_model
 
     def get_training_args(self) -> TrainingArguments:
         """Create TrainingArguments from configuration.
@@ -88,7 +92,7 @@ class ASRTrainerSetup:
             save_steps=self.config.save_steps,
             save_total_limit=self.config.save_total_limit,
             load_best_model_at_end=self.config.load_best_model_at_end,
-            metric_for_best_model=self.config.metric_for_best_model,
+            metric_for_best_model=self.metric_for_best_model or self.config.metric_for_best_model,
             greater_is_better=self.config.greater_is_better,
             dataloader_num_workers=self.config.dataloader_num_workers,
             seed=self.config.seed,
@@ -126,7 +130,7 @@ class ASRTrainerSetup:
             model=self.model,
             args=training_args,
             train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
+            eval_dataset=self.eval_datasets,
             data_collator=data_collator,
             compute_metrics=self.compute_metrics,
             processing_class=self.processor.feature_extractor,
@@ -140,10 +144,11 @@ def create_trainer(
     model: HubertForCTC,
     processor: Wav2Vec2Processor,
     train_dataset: Dataset,
-    eval_dataset: Dataset,
+    eval_datasets: Union[Dataset, Dict[str, Dataset]],
     config: TrainingConfig,
     device: torch.device,
     compute_metrics: Optional[Callable] = None,
+    metric_for_best_model: Optional[str] = None,
 ) -> Trainer:
     """Convenience function to create a configured Trainer.
 
@@ -151,10 +156,12 @@ def create_trainer(
         model: HuBERT model with CTC head.
         processor: Wav2Vec2 processor for tokenization.
         train_dataset: Prepared training dataset.
-        eval_dataset: Prepared evaluation dataset.
+        eval_datasets: Prepared evaluation dataset(s). Can be a single Dataset
+            or a dict mapping split names to datasets for multi-split eval.
         config: Training configuration.
         device: Compute device.
         compute_metrics: Optional function for computing metrics during eval.
+        metric_for_best_model: Override metric name for load_best_model_at_end.
 
     Returns:
         Configured Trainer ready for training.
@@ -163,9 +170,10 @@ def create_trainer(
         model=model,
         processor=processor,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        eval_datasets=eval_datasets,
         config=config,
         device=device,
         compute_metrics=compute_metrics,
+        metric_for_best_model=metric_for_best_model,
     )
     return setup.get_trainer()

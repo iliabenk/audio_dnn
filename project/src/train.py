@@ -96,10 +96,20 @@ def main():
     train_dataset = dataset_loader.get_train_dataset()
     logger.info(f"Training samples: {len(train_dataset)}")
 
-    logger.info("Preparing evaluation dataset...")
-    eval_split = config.evaluation.eval_splits[0] if config.evaluation.eval_splits else "validation"
-    eval_dataset = dataset_loader.get_eval_dataset(eval_split)
-    logger.info(f"Evaluation samples: {len(eval_dataset)}")
+    logger.info("Preparing evaluation datasets...")
+    # Load all evaluation splits (dev-clean, dev-other, test-clean, test-other)
+    eval_splits = config.evaluation.eval_splits + config.evaluation.test_splits
+    # Remove duplicates while preserving order
+    eval_splits = list(dict.fromkeys(eval_splits))
+
+    eval_datasets = {}
+    for split in eval_splits:
+        logger.info(f"  Loading {split}...")
+        eval_datasets[split.replace(".", "_")] = dataset_loader.get_eval_dataset(split)
+        logger.info(f"    {split}: {len(eval_datasets[split.replace('.', '_')])} samples")
+
+    # Use first split as primary for load_best_model_at_end
+    primary_eval_key = eval_splits[0].replace(".", "_") if eval_splits else "validation_clean"
 
     # Create WER calculator for metrics
     wer_calculator = WERCalculator(processor)
@@ -110,10 +120,11 @@ def main():
         model=model,
         processor=processor,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        eval_datasets=eval_datasets,
         config=config.training,
         device=device,
         compute_metrics=wer_calculator.compute_metrics_for_trainer,
+        metric_for_best_model=f"eval_{primary_eval_key}_wer",
     )
 
     # Train
