@@ -36,14 +36,16 @@ class LibriSpeechDataset:
         self._loaded_splits: dict = {}
 
         # Set number of processes for parallel mapping
-        # In distributed training, reduce num_proc to avoid resource exhaustion
+        # In distributed training, be very conservative to avoid resource exhaustion
         if num_proc is None:
             local_rank = os.environ.get("LOCAL_RANK")
-            world_size = int(os.environ.get("WORLD_SIZE", "1"))
             if local_rank is not None:
-                # Distributed training: divide workers among ranks to avoid exhaustion
-                total_cpus = os.cpu_count() or 1
-                self.num_proc = max(1, total_cpus // world_size)
+                # Distributed training: only main rank uses multiprocessing
+                # Other ranks use single process to avoid N_GPUs * num_proc explosion
+                if int(local_rank) == 0:
+                    self.num_proc = min(os.cpu_count() or 1, 8)
+                else:
+                    self.num_proc = 1
             else:
                 # Single process training: use all available CPUs, cap at 16
                 self.num_proc = min(os.cpu_count() or 1, 16)
@@ -101,22 +103,25 @@ class LibriSpeechDataset:
         Returns:
             Preprocessed dataset ready for training.
         """
-        # Filter by duration (can use multiprocessing)
+        # Only show progress on main process
+        local_rank = os.environ.get("LOCAL_RANK")
+        is_main_process = local_rank is None or int(local_rank) == 0
+
+        # Filter by duration
         dataset = dataset.filter(
             self._filter_by_duration,
             num_proc=self.num_proc,
-            desc="Filtering by duration",
+            desc="Filtering by duration" if is_main_process else None,
         )
 
         # Preprocess: extract features and tokenize transcriptions
-        # Use batched processing for better performance
         dataset = dataset.map(
             self._preprocess_function_batched,
             remove_columns=dataset.column_names,
             batched=True,
             batch_size=100,
             num_proc=self.num_proc,
-            desc="Preprocessing",
+            desc="Preprocessing" if is_main_process else None,
         )
 
         return dataset
