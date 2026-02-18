@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .config import Config
 from .data.dataset import LibriSpeechDataset
+from .evaluation.decoder import CTCDecoder
 from .evaluation.metrics import WERCalculator
 from .model.hubert_ctc import HuBERTForASR
 from .training.trainer import create_trainer
@@ -111,8 +112,23 @@ def main():
     # Use first split as primary for load_best_model_at_end
     primary_eval_key = eval_splits[0].replace(".", "_") if eval_splits else "validation_clean"
 
+    # Create decoder (beam search + LM if configured)
+    decoder = None
+    if config.decoding.use_lm:
+        logger.info("Initializing CTC decoder with LM...")
+        decoder = CTCDecoder(
+            processor=processor,
+            use_lm=True,
+            lm_path=config.decoding.lm_path,
+            beam_width=config.decoding.beam_width,
+            alpha=config.decoding.alpha,
+            beta=config.decoding.beta,
+        )
+    else:
+        logger.info("Using greedy CTC decoding (no LM)")
+
     # Create WER calculator for metrics
-    wer_calculator = WERCalculator(processor)
+    wer_calculator = WERCalculator(processor, decoder=decoder)
 
     # Create trainer
     logger.info("Setting up trainer...")

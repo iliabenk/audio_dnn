@@ -74,6 +74,17 @@ class EvaluationConfig:
 
 
 @dataclass
+class DecodingConfig:
+    """CTC Decoding configuration."""
+
+    use_lm: bool = False  # Whether to use language model
+    lm_path: Optional[str] = None  # Path to KenLM model (.arpa or .bin)
+    beam_width: int = 100  # Beam width for beam search
+    alpha: float = 0.5  # LM weight
+    beta: float = 1.0  # Word insertion bonus
+
+
+@dataclass
 class DeviceConfig:
     """Device configuration."""
 
@@ -89,6 +100,7 @@ class Config:
     audio: AudioConfig = field(default_factory=AudioConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+    decoding: DecodingConfig = field(default_factory=DecodingConfig)
     device: DeviceConfig = field(default_factory=DeviceConfig)
 
     @classmethod
@@ -121,6 +133,7 @@ class Config:
         audio_data = data.get("audio", {})
         training_data = data.get("training", {})
         evaluation_data = data.get("evaluation", {})
+        decoding_data = data.get("decoding", {})
         device_data = data.get("device", {})
 
         return cls(
@@ -129,6 +142,7 @@ class Config:
             audio=AudioConfig(**audio_data),
             training=TrainingConfig(**training_data),
             evaluation=EvaluationConfig(**evaluation_data),
+            decoding=DecodingConfig(**decoding_data),
             device=DeviceConfig(**device_data),
         )
 
@@ -184,6 +198,13 @@ class Config:
             "evaluation": {
                 "eval_splits": self.evaluation.eval_splits,
                 "test_splits": self.evaluation.test_splits,
+            },
+            "decoding": {
+                "use_lm": self.decoding.use_lm,
+                "lm_path": self.decoding.lm_path,
+                "beam_width": self.decoding.beam_width,
+                "alpha": self.decoding.alpha,
+                "beta": self.decoding.beta,
             },
             "device": {
                 "prefer": self.device.prefer,

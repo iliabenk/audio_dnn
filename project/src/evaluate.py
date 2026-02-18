@@ -26,6 +26,7 @@ from transformers import HubertForCTC, Wav2Vec2Processor
 from .config import AudioConfig, DatasetConfig
 from .data.collator import CTCDataCollator
 from .data.dataset import LibriSpeechDataset
+from .evaluation.decoder import CTCDecoder
 from .evaluation.metrics import WERCalculator
 from .utils.device import DeviceManager
 
@@ -72,6 +73,31 @@ def parse_args():
         type=str,
         default="clean",
         help="LibriSpeech subset (clean or other)",
+    )
+    # Language model decoding options
+    parser.add_argument(
+        "--lm_path",
+        type=str,
+        default=None,
+        help="Path to KenLM language model (.arpa or .bin) for beam search decoding",
+    )
+    parser.add_argument(
+        "--beam_width",
+        type=int,
+        default=100,
+        help="Beam width for beam search (default: 100)",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.5,
+        help="LM weight for beam search (default: 0.5)",
+    )
+    parser.add_argument(
+        "--beta",
+        type=float,
+        default=1.0,
+        help="Word insertion bonus for beam search (default: 1.0)",
     )
     return parser.parse_args()
 
@@ -176,8 +202,23 @@ def main():
     model = model.to(device)
     model.eval()
 
+    # Create decoder (beam search + LM if specified)
+    decoder = None
+    if args.lm_path:
+        logger.info(f"Initializing CTC decoder with LM from {args.lm_path}")
+        decoder = CTCDecoder(
+            processor=processor,
+            use_lm=True,
+            lm_path=args.lm_path,
+            beam_width=args.beam_width,
+            alpha=args.alpha,
+            beta=args.beta,
+        )
+    else:
+        logger.info("Using greedy CTC decoding (no LM)")
+
     # Create WER calculator
-    wer_calculator = WERCalculator(processor)
+    wer_calculator = WERCalculator(processor, decoder=decoder)
 
     # Evaluate on each split
     results = {}
