@@ -18,7 +18,8 @@ jiwer>=3.0.0
 
 # CTC Decoding with Language Model
 pyctcdecode>=0.5.0
-# kenlm  # Optional: for building custom LMs (requires manual install)
+# Note: pyctcdecode can load .arpa files directly. kenlm is only needed
+# to convert .arpa to .bin format. If needed: pip install kenlm
 
 # Configuration
 pyyaml>=6.0

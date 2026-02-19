@@ -64,23 +64,28 @@ class CTCDecoder:
         sorted_vocab = sorted(vocab.items(), key=lambda x: x[1])
         labels = [token for token, _ in sorted_vocab]
 
-        # pyctcdecode expects specific tokens
-        # Map our vocab to pyctcdecode format
-        # <pad> -> "", <unk> -> "", | -> " " (word boundary)
+        # pyctcdecode expects specific tokens:
+        # - CTC blank should be "" (empty string) - this is typically <pad> at index 0
+        # - Word boundary | should be " " (space)
+        # - All other tokens must be unique
         labels_for_decoder = []
         for label in labels:
             if label == "<pad>":
-                labels_for_decoder.append("")
-            elif label == "<unk>":
+                # CTC blank token
                 labels_for_decoder.append("")
             elif label == "|":
+                # Word delimiter -> space
                 labels_for_decoder.append(" ")
+            elif label == "<unk>":
+                # Keep <unk> as a special token (pyctcdecode handles this)
+                labels_for_decoder.append("⁇")  # Use a unique placeholder
             else:
                 labels_for_decoder.append(label)
 
         # Build decoder
         if lm_path:
             try:
+                import kenlm  # Check if kenlm is available
                 self._decoder = build_ctcdecoder(
                     labels=labels_for_decoder,
                     kenlm_model_path=lm_path,
@@ -88,6 +93,13 @@ class CTCDecoder:
                     beta=self.beta,
                 )
                 logger.info(f"Loaded LM from {lm_path}")
+            except ImportError:
+                logger.warning(
+                    f"kenlm not installed. Cannot load LM from {lm_path}. "
+                    "Install with: pip install kenlm"
+                )
+                logger.info("Falling back to beam search without LM")
+                self._decoder = build_ctcdecoder(labels=labels_for_decoder)
             except Exception as e:
                 logger.warning(f"Failed to load LM from {lm_path}: {e}")
                 logger.info("Falling back to beam search without LM")
