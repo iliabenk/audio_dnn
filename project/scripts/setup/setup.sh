@@ -56,6 +56,16 @@ pip install apple-bolt 2>/dev/null || echo "Note: apple-bolt not installed (opti
 # Some magic export that solved issues that appeared
 export LD_LIBRARY_PATH=/miniforge/lib:$LD_LIBRARY_PATH
 
+# Convert LM to lowercase (required for beam search decoding)
+echo ""
+echo "Converting language model to lowercase..."
+if [[ -f "project/lm/4-gram.arpa" ]]; then
+    tr '[:upper:]' '[:lower:]' < project/lm/4-gram.arpa > project/lm/4-gram-lower.arpa
+    echo "Created project/lm/4-gram-lower.arpa"
+else
+    echo "Warning: project/lm/4-gram.arpa not found, skipping LM conversion"
+fi
+
 # Verify installation
 echo ""
 echo "=== Verifying Installation ==="
