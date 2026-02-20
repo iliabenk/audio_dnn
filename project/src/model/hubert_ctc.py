@@ -1,6 +1,7 @@
 """HuBERT model initialization for CTC-based ASR."""
 
 import json
+import os
 import tempfile
 from pathlib import Path
 
@@ -72,7 +73,9 @@ class HuBERTForASR:
         )
 
         # Create a temporary vocab file for the tokenizer
-        vocab_file = Path(tempfile.gettempdir()) / "hubert_vocab.json"
+        # Use PID to make it unique per process (avoids race conditions in DDP)
+        pid = os.getpid()
+        vocab_file = Path(tempfile.gettempdir()) / f"hubert_vocab_{pid}.json"
         with open(vocab_file, "w") as f:
             json.dump(self.VOCAB, f)
 
