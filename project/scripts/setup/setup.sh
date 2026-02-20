@@ -53,6 +53,9 @@ echo ""
 echo "Attempting to install apple-bolt (optional)..."
 pip install apple-bolt 2>/dev/null || echo "Note: apple-bolt not installed (optional, only needed to run on Bolt)"
 
+# Some magic export that solved issues that appeared
+export LD_LIBRARY_PATH=/miniforge/lib:$LD_LIBRARY_PATH
+
 # Verify installation
 echo ""
 echo "=== Verifying Installation ==="

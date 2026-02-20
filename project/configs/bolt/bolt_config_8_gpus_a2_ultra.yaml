@@ -26,7 +26,7 @@
 
 name: "Training Development"
 
-setup_command: "bash ./project/scripts/setup/setup.sh && bash ./project/scripts/setup/setup_interactive_git.sh"
+setup_command: "source ./project/scripts/setup/setup.sh && bash ./project/scripts/setup/setup_interactive_git.sh"
 command: "bash ./project/scripts/train_debug.sh"
 
 permissions:
