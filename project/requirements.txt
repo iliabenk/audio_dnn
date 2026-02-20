@@ -32,3 +32,4 @@ tqdm>=4.65.0
 tensorboard>=2.14.0
 
 torchcodec
+kenlm
