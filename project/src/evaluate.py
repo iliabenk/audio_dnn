@@ -70,7 +70,7 @@ def parse_args():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=8,
+        default=32,
         help="Evaluation batch size",
     )
     parser.add_argument(
@@ -158,7 +158,7 @@ def evaluate_split(
         batch_size=batch_size,
         shuffle=False,
         collate_fn=collate_fn,
-        num_workers=0,
+        num_workers=4,
     )
 
     # Prepare dataloader for distributed evaluation
