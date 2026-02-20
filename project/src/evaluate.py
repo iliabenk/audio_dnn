@@ -5,7 +5,12 @@ HuBERT ASR Evaluation Script
 Evaluate a fine-tuned HuBERT model on LibriSpeech test splits.
 
 Usage:
+    # Single GPU
     python -m src.evaluate --model outputs/hubert-finetuned/final --splits test.clean test.other
+
+    # Multi-GPU (distributed)
+    accelerate launch --multi_gpu -m src.evaluate --model outputs/hubert-finetuned/final --splits test.clean test.other
+
     python -m src.evaluate --model outputs/hubert-finetuned/final --output results.json
 """
 
@@ -19,6 +24,7 @@ import logging
 from pathlib import Path
 
 import torch
+from accelerate import Accelerator
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import HubertForCTC, Wav2Vec2Processor
@@ -28,7 +34,6 @@ from .data.collator import CTCDataCollator
 from .data.dataset import LibriSpeechDataset
 from .evaluation.decoder import CTCDecoder
 from .evaluation.metrics import WERCalculator
-from .utils.device import DeviceManager
 
 # Configure logging
 logging.basicConfig(
@@ -109,7 +114,7 @@ def evaluate_split(
     split: str,
     batch_size: int,
     subset: str,
-    device: torch.device,
+    accelerator: Accelerator,
 ) -> dict:
     """Evaluate model on a single dataset split.
 
@@ -120,7 +125,7 @@ def evaluate_split(
         split: Dataset split name.
         batch_size: Batch size for evaluation.
         subset: LibriSpeech subset.
-        device: Compute device.
+        accelerator: Accelerator instance for distributed evaluation.
 
     Returns:
         Dictionary with evaluation metrics.
@@ -156,15 +161,18 @@ def evaluate_split(
         num_workers=0,
     )
 
+    # Prepare dataloader for distributed evaluation
+    dataloader = accelerator.prepare(dataloader)
+
     # Run inference
     all_predictions = []
     all_references = []
 
     model.eval()
     with torch.no_grad():
-        for batch in tqdm(dataloader, desc=f"Evaluating {split}"):
-            # Move to device
-            input_values = batch["input_values"].to(device)
+        for batch in tqdm(dataloader, desc=f"Evaluating {split}", disable=not accelerator.is_main_process):
+            # Input is already on correct device via accelerator
+            input_values = batch["input_values"]
 
             # Forward pass
             outputs = model(input_values)
@@ -180,8 +188,15 @@ def evaluate_split(
             references = processor.batch_decode(labels, group_tokens=False)
             all_references.extend(references)
 
-    # Compute WER
-    metrics = wer_calculator.compute_wer(all_predictions, all_references)
+    # Gather predictions and references from all processes
+    all_predictions_gathered = accelerator.gather_for_metrics(all_predictions)
+    all_references_gathered = accelerator.gather_for_metrics(all_references)
+
+    # Compute WER only on main process
+    if accelerator.is_main_process:
+        metrics = wer_calculator.compute_wer(all_predictions_gathered, all_references_gathered)
+    else:
+        metrics = {}
 
     return metrics
 
@@ -190,22 +205,30 @@ def main():
     """Main evaluation function."""
     args = parse_args()
 
-    # Setup device
-    device = DeviceManager.get_device()
-    device_info = DeviceManager.get_device_info(device)
-    logger.info(f"Using device: {device_info}")
+    # Setup accelerator for distributed evaluation
+    accelerator = Accelerator()
+
+    # Configure logging only on main process
+    if accelerator.is_main_process:
+        logger.info(f"Using device: {accelerator.device}")
+        if accelerator.num_processes > 1:
+            logger.info(f"Running distributed evaluation with {accelerator.num_processes} processes")
 
     # Load model and processor
-    logger.info(f"Loading model from {args.model}")
+    if accelerator.is_main_process:
+        logger.info(f"Loading model from {args.model}")
     model = HubertForCTC.from_pretrained(args.model)
     processor = Wav2Vec2Processor.from_pretrained(args.model)
-    model = model.to(device)
+
+    # Prepare model with accelerator
+    model = accelerator.prepare(model)
     model.eval()
 
     # Create decoder (beam search + LM if specified)
     decoder = None
     if args.lm_path:
-        logger.info(f"Initializing CTC decoder with LM from {args.lm_path}")
+        if accelerator.is_main_process:
+            logger.info(f"Initializing CTC decoder with LM from {args.lm_path}")
         decoder = CTCDecoder(
             processor=processor,
             use_lm=True,
@@ -215,7 +238,8 @@ def main():
             beta=args.beta,
         )
     else:
-        logger.info("Using greedy CTC decoding (no LM)")
+        if accelerator.is_main_process:
+            logger.info("Using greedy CTC decoding (no LM)")
 
     # Create WER calculator
     wer_calculator = WERCalculator(processor, decoder=decoder)
@@ -223,7 +247,8 @@ def main():
     # Evaluate on each split
     results = {}
     for split in args.splits:
-        logger.info(f"Evaluating on {split}...")
+        if accelerator.is_main_process:
+            logger.info(f"Evaluating on {split}...")
         try:
             metrics = evaluate_split(
                 model=model,
@@ -232,36 +257,39 @@ def main():
                 split=split,
                 batch_size=args.batch_size,
                 subset=args.subset,
-                device=device,
+                accelerator=accelerator,
             )
             results[split] = metrics
-            logger.info(f"  WER: {WERCalculator.format_wer(metrics['wer'])}")
-            logger.info(
-                f"  Details: S={metrics['substitutions']}, "
-                f"I={metrics['insertions']}, D={metrics['deletions']}"
-            )
+            if accelerator.is_main_process:
+                logger.info(f"  WER: {WERCalculator.format_wer(metrics['wer'])}")
+                logger.info(
+                    f"  Details: S={metrics['substitutions']}, "
+                    f"I={metrics['insertions']}, D={metrics['deletions']}"
+                )
         except Exception as e:
-            logger.error(f"  Failed to evaluate {split}: {e}")
+            if accelerator.is_main_process:
+                logger.error(f"  Failed to evaluate {split}: {e}")
             results[split] = {"error": str(e)}
 
-    # Print summary
-    print("\n" + "=" * 60)
-    print("EVALUATION SUMMARY")
-    print("=" * 60)
-    for split, metrics in results.items():
-        if "error" in metrics:
-            print(f"{split}: ERROR - {metrics['error']}")
-        else:
-            print(f"{split}: WER = {WERCalculator.format_wer(metrics['wer'])}")
-    print("=" * 60)
+    # Print summary and save results only on main process
+    if accelerator.is_main_process:
+        print("\n" + "=" * 60)
+        print("EVALUATION SUMMARY")
+        print("=" * 60)
+        for split, metrics in results.items():
+            if "error" in metrics:
+                print(f"{split}: ERROR - {metrics['error']}")
+            else:
+                print(f"{split}: WER = {WERCalculator.format_wer(metrics['wer'])}")
+        print("=" * 60)
 
-    # Save results
-    if args.output:
-        output_path = Path(args.output)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "w") as f:
-            json.dump(results, f, indent=2)
-        logger.info(f"Results saved to {args.output}")
+        # Save results
+        if args.output:
+            output_path = Path(args.output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, "w") as f:
+                json.dump(results, f, indent=2)
+            logger.info(f"Results saved to {args.output}")
 
 
 if __name__ == "__main__":
