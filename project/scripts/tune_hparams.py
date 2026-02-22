@@ -42,10 +42,10 @@ def save_config(config: dict, config_path: str):
         yaml.dump(config, f, default_flow_style=False)
 
 
-def run_training(config_path: str, run_name: str) -> float | None:
+def run_training(config_path: str, run_name: str, output_dir: Path) -> float | None:
     """Run training and return best validation WER."""
     cmd = [
-        "accelerate", "launch", "--multi_gpu",
+        "accelerate", "launch",
         "-m", "project.src.train",
         "--config", config_path,
     ]
@@ -54,37 +54,46 @@ def run_training(config_path: str, run_name: str) -> float | None:
     print(f"Running: {run_name}")
     print(f"Command: {' '.join(cmd)}")
     print(f"{'='*60}\n")
+    sys.stdout.flush()
+
+    # Log file to capture output for WER extraction
+    log_file = output_dir / f"{run_name}.log"
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=3600 * 12,  # 12 hour timeout
-        )
+        # Run with live output (tee to both console and log file)
+        with open(log_file, "w") as f:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,  # Line buffered
+            )
 
-        # Print output
-        print(result.stdout)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
+            # Stream output to both console and log file
+            for line in process.stdout:
+                print(line, end="")
+                f.write(line)
+                sys.stdout.flush()
 
-        # Extract best WER from output
-        # Look for lines like "Best WER: 0.0523" or "wer': 0.0523"
+            process.wait()
+
+        # Extract best WER from log file
         best_wer = None
-        for line in result.stdout.split("\n"):
-            if "best" in line.lower() and "wer" in line.lower():
-                # Try to extract number
-                import re
-                match = re.search(r"(\d+\.\d+)", line)
-                if match:
-                    best_wer = float(match.group(1))
-            elif "'wer':" in line or '"wer":' in line:
-                import re
-                match = re.search(r"(\d+\.\d+)", line)
-                if match:
-                    wer = float(match.group(1))
-                    if best_wer is None or wer < best_wer:
-                        best_wer = wer
+        with open(log_file) as f:
+            for line in f:
+                if "best" in line.lower() and "wer" in line.lower():
+                    import re
+                    match = re.search(r"(\d+\.\d+)", line)
+                    if match:
+                        best_wer = float(match.group(1))
+                elif "'wer':" in line or '"wer":' in line:
+                    import re
+                    match = re.search(r"(\d+\.\d+)", line)
+                    if match:
+                        wer = float(match.group(1))
+                        if best_wer is None or wer < best_wer:
+                            best_wer = wer
 
         return best_wer
 
@@ -178,7 +187,7 @@ def main():
         save_config(config, str(temp_config_path))
 
         # Run training
-        wer = run_training(str(temp_config_path), run_name)
+        wer = run_training(str(temp_config_path), run_name, output_dir)
 
         # Record result
         status = "success" if wer is not None else "failed"
