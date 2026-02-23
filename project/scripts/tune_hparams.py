@@ -17,6 +17,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+import re
 
 import yaml
 
@@ -81,19 +82,13 @@ def run_training(config_path: str, run_name: str, output_dir: Path) -> float | N
         # Extract best WER from log file
         best_wer = None
         with open(log_file) as f:
-            for line in f:
-                if "best" in line.lower() and "wer" in line.lower():
-                    import re
+            for line in reversed(f.readlines()):
+                if "validation.clean: WER = " in line:
+                    print(line)
                     match = re.search(r"(\d+\.\d+)", line)
                     if match:
                         best_wer = float(match.group(1))
-                elif "'wer':" in line or '"wer":' in line:
-                    import re
-                    match = re.search(r"(\d+\.\d+)", line)
-                    if match:
-                        wer = float(match.group(1))
-                        if best_wer is None or wer < best_wer:
-                            best_wer = wer
+                    break
 
         return best_wer
 
