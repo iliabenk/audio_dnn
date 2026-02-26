@@ -13,7 +13,7 @@ project/
 ├── configs/                   # Configuration files
 │   ├── default.yaml          # Default 100h training
 │   ├── debug.yaml            # Quick debug config
-│   ├── gpu.yaml              # Optimized for large GPUs (24GB+)
+│   ├── libri-100h.yaml        # Optimized for large GPUs (24GB+)
 │   └── mac.yaml              # Optimized for Mac with MPS
 ├── src/                      # Source code
 │   ├── train.py              # Training entry point
@@ -100,7 +100,7 @@ pip install -r requirements.txt
 python -m src.train --config configs/default.yaml
 
 # Resume from checkpoint
-python -m src.train --config configs/gpu.yaml --resume outputs/checkpoint-500
+python -m src.train --config configs/libri-100h.yaml --resume outputs/checkpoint-500
 ```
 
 ### Evaluation
