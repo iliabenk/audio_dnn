@@ -63,6 +63,7 @@ class TrainingConfig:
     greater_is_better: bool = False
     dataloader_num_workers: int = 4
     seed: int = 42
+    bolt_metric_prefix: Optional[str] = None  # Prefix for Bolt metrics (e.g., "librilight-10h")
 
 
 @dataclass
@@ -194,6 +195,7 @@ class Config:
                 "greater_is_better": self.training.greater_is_better,
                 "dataloader_num_workers": self.training.dataloader_num_workers,
                 "seed": self.training.seed,
+                "bolt_metric_prefix": self.training.bolt_metric_prefix,
             },
             "evaluation": {
                 "eval_splits": self.evaluation.eval_splits,

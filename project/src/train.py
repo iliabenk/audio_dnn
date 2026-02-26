@@ -7,7 +7,7 @@ Fine-tune a pre-trained HuBERT model on LibriSpeech for ASR using CTC loss.
 Usage:
     python -m src.train --config configs/default.yaml
     python -m src.train --config configs/debug.yaml
-    python -m src.train --config configs/gpu.yaml --resume outputs/checkpoint-500
+    python -m src.train --config configs/libri-100h.yaml --resume outputs/checkpoint-500
 """
 
 import os

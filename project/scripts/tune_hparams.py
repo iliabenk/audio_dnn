@@ -6,7 +6,7 @@ Runs training with different hyperparameter combinations and tracks the best res
 
 Usage:
     python project/scripts/tune_hparams.py
-    python project/scripts/tune_hparams.py --base-config project/configs/gpu.yaml --epochs 10
+    python project/scripts/tune_hparams.py --base-config project/configs/libri-100h.yaml --epochs 10
 """
 
 import argparse
@@ -105,7 +105,7 @@ def main():
     parser.add_argument(
         "--base-config",
         type=str,
-        default="project/configs/gpu.yaml",
+        default="project/configs/libri-100h.yaml",
         help="Base configuration file",
     )
     parser.add_argument(

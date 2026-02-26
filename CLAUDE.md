@@ -17,7 +17,7 @@ cd project && ./scripts/setup.sh
 ./scripts/train_gpu.sh                      # Full training on NVIDIA GPU
 ./scripts/train_mac.sh                      # Apple Silicon training
 python -m src.train --config configs/default.yaml
-python -m src.train --config configs/gpu.yaml --resume outputs/checkpoint-500
+python -m src.train --config configs/libri-100h.yaml --resume outputs/checkpoint-500
 
 # Evaluation
 python -m src.evaluate --model outputs/hubert-finetuned/final --splits test.clean test.other
@@ -60,7 +60,7 @@ The implementation lives in `project/src/` with three entry points:
 Four pre-defined configs in `project/configs/`:
 - **debug.yaml** - 1 epoch, batch_size=2, for testing
 - **default.yaml** - 30 epochs, batch_size=8, standard training
-- **gpu.yaml** - FP16 enabled, batch_size=16, 8 workers
+- **libri-100h.yaml** - BF16 enabled, batch_size=16, 8 workers
 - **mac.yaml** - MPS device, no FP16, 0 workers
 
 Key parameters: `model.freeze_feature_encoder=true` (CNN frozen), `training.learning_rate=3e-5`, `audio.max_duration_sec=20.0`

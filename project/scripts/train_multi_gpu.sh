@@ -8,5 +8,5 @@ set -e
 accelerate launch \
     --multi_gpu \
     -m project.src.train \
-    --config project/configs/gpu.yaml \
+    --config project/configs/libri-100h.yaml \
     "$@"

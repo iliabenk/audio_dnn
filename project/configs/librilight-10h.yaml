@@ -1,0 +1,77 @@
+# HuBERT ASR Fine-tuning - Libri-Light 10h Configuration
+# Low-resource training on 10 hours of labeled data (from HuBERT paper)
+#
+# Dataset: Libri-Light limited supervision 10h subset
+# This uses utterances from LibriSpeech train-clean-100 selected by Libri-Light
+
+# ============== Model ==============
+model:
+  name: "facebook/hubert-base-ls960"
+  freeze_feature_encoder: true
+  attention_dropout: 0.1
+  hidden_dropout: 0.1
+  feat_proj_dropout: 0.0
+  layerdrop: 0.1
+
+# ============== Dataset ==============
+# Libri-Light 10h subset from HuggingFace
+# Alternative: download from https://github.com/facebookresearch/libri-light
+dataset:
+  name: "librispeech_asr"
+  subset: "clean"
+  train_split: "train.clean.100[:10%]"  # ~10h from 100h subset
+  cache_dir: null
+
+# ============== Audio Processing ==============
+audio:
+  sampling_rate: 16000
+  max_duration_sec: 20.0
+  min_duration_sec: 0.5
+
+# ============== Training ==============
+# Adjusted for smaller dataset: more epochs, careful regularization
+training:
+  output_dir: "./project/outputs/hubert-librilight-10h"
+  bolt_metric_prefix: "librilight-10h"  # Prefix for Bolt metrics
+  num_train_epochs: 100  # More epochs for smaller dataset
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 8
+  gradient_accumulation_steps: 4
+  learning_rate: 3.0e-5
+  lr_scheduler_type: "cosine"
+  lr_min: 1.0e-6
+  warmup_steps: 200
+  weight_decay: 0.01  # Slightly higher for regularization
+  fp16: false
+  bf16: true
+  logging_steps: 50
+  eval_steps: 200
+  save_steps: 5000
+  save_total_limit: 3
+  load_best_model_at_end: true
+  metric_for_best_model: "wer"
+  greater_is_better: false
+  dataloader_num_workers: 4
+  seed: 42
+
+# ============== Evaluation ==============
+evaluation:
+  eval_splits:
+    - "validation.clean"
+  test_splits:
+    - "validation.clean"
+    - "validation.other"
+    - "test.clean"
+    - "test.other"
+
+# ============== Decoding ==============
+decoding:
+  use_lm: false
+  lm_path: null
+  beam_width: 100
+  alpha: 0.5
+  beta: 1.0
+
+# ============== Device ==============
+device:
+  prefer: "auto"

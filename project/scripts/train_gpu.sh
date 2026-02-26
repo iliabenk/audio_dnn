@@ -5,4 +5,4 @@
 
 set -e
 
-python -m project.src.train --config project/configs/gpu.yaml "$@"
+python -m project.src.train --config project/configs/libri-100h.yaml "$@"

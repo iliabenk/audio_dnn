@@ -162,12 +162,15 @@ class BoltCallback(TrainerCallback):
         bolt.send_metrics(metrics)
 
 
-def get_bolt_callback() -> Optional[BoltCallback]:
+def get_bolt_callback(metric_prefix: Optional[str] = None) -> Optional[BoltCallback]:
     """Get a BoltCallback if running on Bolt, otherwise None.
+
+    Args:
+        metric_prefix: Optional prefix to add to all metric names.
 
     Returns:
         BoltCallback instance if on Bolt, None otherwise.
     """
     if is_on_bolt():
-        return BoltCallback()
+        return BoltCallback(metric_prefix=metric_prefix)
     return None

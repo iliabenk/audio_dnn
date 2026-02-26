@@ -149,7 +149,7 @@ class ASRTrainerSetup:
 
         # Build callbacks list
         callbacks: List[TrainerCallback] = []
-        bolt_callback = get_bolt_callback()
+        bolt_callback = get_bolt_callback(metric_prefix=self.config.bolt_metric_prefix)
         if bolt_callback is not None:
             callbacks.append(bolt_callback)
 

@@ -1,4 +1,4 @@
-# HuBERT ASR Fine-tuning - GPU Configuration
+# HuBERT ASR Fine-tuning - LibriSpeech 100h Configuration
 # Optimized for large GPUs (24GB+ VRAM, e.g., A100, V100, RTX 4090)
 
 # ============== Model ==============
@@ -25,7 +25,8 @@ audio:
 
 # ============== Training ==============
 training:
-  output_dir: "./project/outputs/hubert-gpu"
+  output_dir: "./project/outputs/hubert-libri-100h"
+  bolt_metric_prefix: "libri-100h"  # Prefix for Bolt metrics
   num_train_epochs: 300
   per_device_train_batch_size: 16
   per_device_eval_batch_size: 16
@@ -39,7 +40,7 @@ training:
   bf16: true
   logging_steps: 100
   eval_steps: 500
-  save_steps: 500
+  save_steps: 5000
   save_total_limit: 3
   load_best_model_at_end: true
   metric_for_best_model: "wer"
