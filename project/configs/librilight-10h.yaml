@@ -33,20 +33,20 @@ audio:
 training:
   output_dir: "./project/outputs/hubert-librilight-10h"
   bolt_metric_prefix: "librilight-10h"  # Prefix for Bolt metrics
-  num_train_epochs: 100  # More epochs for smaller dataset
-  per_device_train_batch_size: 8
-  per_device_eval_batch_size: 8
-  gradient_accumulation_steps: 4
-  learning_rate: 3.0e-5
+  num_train_epochs: 800  # More epochs for smaller dataset
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 2
+  learning_rate: 2.0e-4
   lr_scheduler_type: "cosine"
-  lr_min: 1.0e-6
-  warmup_steps: 200
-  weight_decay: 0.01  # Slightly higher for regularization
+  lr_min: 5.0e-6
+  warmup_steps: 1000
+  weight_decay: 0.005  # Slightly higher for regularization
   fp16: false
   bf16: true
   logging_steps: 50
-  eval_steps: 200
-  save_steps: 5000
+  eval_steps: 500
+  save_steps: 500
   save_total_limit: 3
   load_best_model_at_end: true
   metric_for_best_model: "wer"

@@ -32,10 +32,10 @@ audio:
 training:
   output_dir: "./project/outputs/hubert-librilight-1h"
   bolt_metric_prefix: "librilight-1h"  # Prefix for Bolt metrics
-  num_train_epochs: 200  # Many more epochs for tiny dataset
-  per_device_train_batch_size: 4  # Smaller batch for stability
+  num_train_epochs: 1000  # Many more epochs for tiny dataset
+  per_device_train_batch_size: 8  # Smaller batch for stability
   per_device_eval_batch_size: 8
-  gradient_accumulation_steps: 8  # Effective batch of 32
+  gradient_accumulation_steps: 2  # Effective batch of 32
   learning_rate: 2.0e-5  # Lower LR to prevent overfitting
   lr_scheduler_type: "cosine"
   lr_min: 1.0e-6

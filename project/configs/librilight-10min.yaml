@@ -8,10 +8,10 @@
 model:
   name: "facebook/hubert-base-ls960"
   freeze_feature_encoder: true
-  attention_dropout: 0.2  # Strong dropout for extreme low-resource
-  hidden_dropout: 0.2
-  feat_proj_dropout: 0.1
-  layerdrop: 0.15
+  attention_dropout: 0.1
+  hidden_dropout: 0.1
+  feat_proj_dropout: 0.0
+  layerdrop: 0.1
 
 # ============== Dataset ==============
 # Libri-Light 10min subset - approximately 0.17% of train-clean-100
@@ -33,25 +33,25 @@ audio:
 training:
   output_dir: "./project/outputs/hubert-librilight-10min"
   bolt_metric_prefix: "librilight-10min"  # Prefix for Bolt metrics
-  num_train_epochs: 500  # Very many epochs for tiny dataset
-  per_device_train_batch_size: 2  # Very small batch
-  per_device_eval_batch_size: 8
-  gradient_accumulation_steps: 16  # Effective batch of 32
-  learning_rate: 1.0e-5  # Very low LR
+  num_train_epochs: 5000  # Very many epochs for tiny dataset
+  per_device_train_batch_size: 16  # Very small batch
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 2  # Effective batch of 32
+  learning_rate: 2.0e-4  # Very low LR
   lr_scheduler_type: "cosine"
-  lr_min: 1.0e-7
-  warmup_steps: 50
-  weight_decay: 0.05  # Strong regularization
+  lr_min: 5.0e-6
+  warmup_steps: 1000
+  weight_decay: 0.005  # Strong regularization
   fp16: false
   bf16: true
-  logging_steps: 10
-  eval_steps: 50
+  logging_steps: 100
+  eval_steps: 500
   save_steps: 5000
-  save_total_limit: 5  # Keep more checkpoints for tiny dataset
+  save_total_limit: 3  # Keep more checkpoints for tiny dataset
   load_best_model_at_end: true
   metric_for_best_model: "wer"
   greater_is_better: false
-  dataloader_num_workers: 2
+  dataloader_num_workers: 8
   seed: 42
 
 # ============== Evaluation ==============
