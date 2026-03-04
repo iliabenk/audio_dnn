@@ -149,9 +149,26 @@ Configuration is done via YAML files. Key parameters:
 - `train.360` - 360 hours (train-clean-360)
 - `train.other.500` - 500 hours (train-other-500)
 
-## Expected Results
+## Results
 
-Based on the HuBERT paper (Table 5):
+### Our Results
+
+**100h training (train-clean-100):**
+
+| Decoding | dev-clean | dev-other | test-clean | test-other |
+|----------|-----------|-----------|------------|------------|
+| LM (best) | 4.30% | 11.75% | 4.62% | 11.63% |
+| LM        | 4.44% | 12.48% | 4.69% | 12.61% |
+| Greedy    | 5.45% | 14.80% | 5.74% | 15.05% |
+
+**10h training (train-10h subset):**
+
+| Decoding | dev-clean | dev-other | test-clean | test-other |
+|----------|-----------|-----------|------------|------------|
+| LM       | 8.62% | 20.83% | 9.15% | 21.78% |
+| Greedy   | 10.31% | 23.79% | 10.90% | 25.01% |
+
+### HuBERT Paper Baseline (Table 5)
 
 | Training Data | dev-clean | dev-other | test-clean | test-other |
 |---------------|-----------|-----------|------------|------------|
