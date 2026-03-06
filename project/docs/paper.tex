@@ -28,7 +28,7 @@
 \maketitle
 
 \begin{abstract}
-The development of Automatic Speech Recognition (ASR) systems traditionally required massive transcribed datasets, a paradigm revolutionized by self-supervised learning.
+The development of Automatic Speech Recognition (ASR) systems traditionally required massive transcribed datasets and extensive manual feature engineering by domain experts. This paradigm has shifted significantly with the advent of self-supervised learning, which extracts robust acoustic representations directly from raw audio. 
 This project reproduces the supervised fine-tuning phase of the foundational HuBERT model.
 We fine-tuned the pre-trained \texttt{facebook/hubert-base-ls960} model on the 100-hour LibriSpeech dataset using Connectionist Temporal Classification (CTC) loss.
 By freezing the convolutional feature encoder to leverage pre-trained acoustic representations, our system successfully mapped raw audio to text transcriptions.
@@ -37,24 +37,20 @@ Although we did not perfectly match the original paper's benchmarks of 3.4\% and
 this slight discrepancy is likely due to the lack of computational resources required for exhaustive large-scale hyperparameter optimization.
 \end{abstract}
 
-\begin{IEEEkeywords}
-Speech recognition, self-supervised learning, HuBERT, CTC, fine-tuning
-\end{IEEEkeywords}
-
 \section{Introduction}
-The development of highly accurate Automatic Speech Recognition (ASR) systems has historically relied on massive, manually transcribed datasets.
-While self-supervised learning mitigates this dependency in NLP, applying it to speech presents non-trivial challenges: continuous speech contains multiple sound units per utterance, lacks explicit segmentation, and has no pre-existing lexicon.
+The development of highly accurate Automatic Speech Recognition (ASR) systems has historically been bottlenecked by the need for massive datasets, requiring thousands of hours of audio to be meticulously transcribed by human experts. While self-supervised learning (SSL) architectures like the BERT model have successfully mitigated this data dependency in Natural Language Processing (NLP), applying these same paradigms directly to audio presents non-trivial challenges. Unlike text, continuous speech lacks explicit segmentation, contains multiple variable-length sound units per utterance, and operates without a pre-existing discrete lexicon.
 
-The HuBERT (Hidden-Unit BERT) framework elegantly addresses these issues by utilizing an offline clustering step to provide aligned target labels for a BERT-like prediction loss \cite{hubert}.
-The model bootstraps this process by initially running $K$-means clustering on 39-dimensional Mel-Frequency Cepstral Coefficients (MFCCs) to generate discrete pseudo-labels.
-Crucially, HuBERT applies its predictive cross-entropy loss \textit{only} over masked continuous audio regions.
-This forces the network to learn a combined acoustic and language model to infer the targets of unseen frames from context, rather than simply memorizing cluster assignments.
-Furthermore, the model iteratively refines its representations by running subsequent clustering on its own learned latent features, progressively improving representation quality with each iteration.
+The HuBERT (Hidden-Unit BERT) framework resolves the continuous-to-discrete mapping problem through a self-supervised masked prediction objective tied to offline clustering. Initially, a $K$-means algorithm is applied to Mel-Frequency Cepstral Coefficients (MFCCs) to produce discrete, aligned target labels for each audio frame. The core innovation lies in applying a BERT-like cross-entropy loss strictly over masked input regions. This masking strategy forces the network to infer the acoustic and linguistic targets of unseen frames from broader temporal context. This allows the model to iteratively build robust latent representations of speech, which are then used as the clustering targets for subsequent training generations.
 
-This project focuses on the subsequent supervised phase: evaluating the efficacy of mapping these self-supervised continuous representations to discrete text.
-We reproduce the fine-tuning stage of the pre-trained HuBERT Base model on the LibriSpeech dataset using Connectionist Temporal Classification (CTC) loss, bridging the gap between discovered hidden units and standard English orthography.
+The objective of our project is to reproduce the final, supervised ASR fine-tuning pipeline of the HuBERT framework. Rather than retraining the initial latent representations, we leverage the pre-trained \texttt{facebook/hubert-base-ls960} model to evaluate its discrete mapping capabilities. By intentionally freezing the convolutional feature-extraction layers, we isolate the fine-tuning process to the contextual transformer and the CTC classification head. We train this pipeline on the 100-hour and 10-hour LibriSpeech subsets, using CTC loss to resolve the length mismatch between the continuous audio frames and the 30-token target transcripts, thereby proving that these unsupervised features can serve as a highly efficient foundation for speech-to-text systems.
 
 \section{Related Work}
+\begin{figure}[htbp]
+    \centering
+    \textcolor{red}{\textbf{[TODO: We need to refactor and make sure this section is accurate]}}
+    \caption{Training and Validation Loss over 30 Epochs}
+    \label{fig:loss}
+\end{figure}
 This project builds upon several key advancements in self-supervised learning and ASR:
 \begin{itemize}
     \item \textbf{BERT \cite{bert}:} Introduced the masked language modeling objective, which HuBERT adapts for continuous audio.
@@ -67,27 +63,21 @@ This project builds upon several key advancements in self-supervised learning an
 \section{Method}
 
 \subsection{Architecture \& Pre-Training Mechanics}
-We utilize the 95-million parameter ``BASE'' HuBERT architecture \cite{hubert}, loaded via the Hugging Face \texttt{transformers} library. Table~\ref{tab:models} summarizes the three model configurations defined in the original paper. The base model consists of:
+
+Our experiments are based on the 95-million parameter ``BASE'' HuBERT model \cite{hubert} implemented using the Hugging Face \texttt{transformers} library. For our fine-tuning pipeline, the architecture is divided into three functional stages:
+
 \begin{itemize}
-    \item \textbf{CNN Feature Encoder (Frozen):} A 7-layer convolutional network with strides [5,2,2,2,2,2,2] extracts local acoustic features from raw 16kHz audio. It down-samples the audio by a factor of 320x, generating a feature sequence at a 20ms framerate (50Hz). This encoder is frozen during fine-tuning to preserve pre-trained acoustic representations.
-    \item \textbf{Transformer Encoder (Trainable):} A 12-layer, 768-dimensional self-attention network that provides long-range contextual understanding. During its original pre-training, spans of $l=10$ steps were masked, with $p=8\%$ of the waveform encoder output frames randomly selected as mask starts.
-    \item \textbf{CTC Head (Trainable):} A linear classification layer that replaces the original pre-training projection layer. It projects the transformer's output into a 30-token vocabulary (lowercase letters, apostrophe, \texttt{|} for spaces, \texttt{<unk>}, and \texttt{<pad>}).
+    \item \textbf{Acoustic Feature Extraction (Frozen):} Raw 16kHz audio is processed by a 7-layer convolutional network (strides: [5, 2, 2, 2, 2, 2, 2]). This reduces the sample rate by a factor of 320x to a 50Hz framerate. By freezing these layers entirely, we lock in the robust self-supervised acoustic representations while significantly reducing computational overhead and maintaining a manageable project scope.
+    \item \textbf{Contextual Encoding (Trainable):} A linear projection layer maps the CNN outputs to the transformer's hidden dimension. The core contextual encoder is a 12-layer, 768-dimensional, 12-head self-attention network equipped with a convolutional positional embedding layer to encode temporal sequence order. In the original unsupervised phase, it was trained by masking spans of $l=10$ steps using a $p=8\%$ masking probability. In our supervised phase, this network is actively fine-tuned.
+    \item \textbf{Token Classification (Trainable):} The original unsupervised pre-training head is discarded. In its place, we append a linear CTC layer that maps the contextual encodings to a discrete 30-token vocabulary, encompassing lowercase letters, an apostrophe, word separators, \texttt{<unk>}, and \texttt{<pad>}.
 \end{itemize}
 
-\begin{table}[htbp]
-\caption{HuBERT Model Configurations from Original Paper}
-\centering
-\begin{tabular}{lccc}
-\toprule
-\textbf{Model} & \textbf{Layers} & \textbf{Hidden Dim} & \textbf{Params} \\
-\midrule
-BASE (ours)  & 12 & 768  & 95M \\
-LARGE        & 24 & 1024 & 317M \\
-X-LARGE      & 48 & 1280 & 1B \\
-\bottomrule
-\end{tabular}
-\label{tab:models}
-\end{table}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\columnwidth]{hubert archirtecture.png}
+    \caption{HuBERT pre-training method. An external Acoustic Unit Discovery System assigns discrete targets ($z_i$) for each frame based on raw audio. The model, comprising a CNN encoder and a Transformer, down-samples raw audio and applies masking to contiguous frame spans ($[\text{MSK}]$). Solid blue arrows visualize that a cross-entropy loss is computed on the Transformer's predictions for only the masked frame positions, against their respective assigned targets, forcing the model to infer them from temporal context. (Red dashed lines indicate parts of the external clustering pipeline). Modified from \cite{hubert}.}
+    \label{fig:hubert-pretrain}
+\end{figure}
 
 \subsection{Objective Function: CTC Loss}
 To map continuous audio frames to discrete text without frame-level alignment data, we utilize Connectionist Temporal Classification (CTC) loss.
