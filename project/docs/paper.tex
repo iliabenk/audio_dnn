@@ -244,14 +244,15 @@ Following the initial 500-step linear warmup, the training loss decreased steadi
 Validation WER dropped aggressively in the early epochs before plateauing towards the end of the 30-epoch cycle, indicating that the network efficiently mapped the frozen acoustic representations to the CTC head without severe overfitting.
 
 \section{Future Work}
-\textbf{Proposed Idea:} Integrating Conformer (Convolution-augmented Transformer) blocks \cite{conformer} into the HuBERT architecture.
-Instead of relying solely on the standard self-attention Transformer blocks during fine-tuning, future work could replace or augment the upper layers with Conformer blocks, which sandwich self-attention mechanisms between convolution modules.
+\textbf{Proposed Idea:} Applying audio augmentation techniques during fine-tuning to improve robustness on noisy and challenging acoustic conditions.
+Specifically, future work could incorporate SpecAugment (masking random frequency bands and time steps), additive noise injection, and speed/pitch perturbation directly into the training pipeline.
 
-\textbf{Why it will work (Pros):} Standard transformers are excellent at global context, but speech heavily relies on local, fine-grained temporal feature variations.
-Conformers capture both local and global dependencies simultaneously, which is known to push ASR boundaries further than standard transformers.
+\textbf{Why it will work (Pros):} Our results show a larger performance gap on the noisy ``other'' splits (11.63\% vs.\ 8.1\% on \textit{test-other}) compared to clean splits (4.62\% vs.\ 3.4\% on \textit{test-clean}).
+Data augmentation directly addresses this weakness by exposing the model to acoustic variations during training, improving generalization without requiring additional labeled data.
+SpecAugment \cite{specaugment} in particular has been shown to significantly improve ASR robustness across multiple architectures.
 
-\textbf{Cons:} Conformers increase the parameter count and computational overhead significantly.
-Additionally, replacing the pre-trained transformer layers would require more aggressive fine-tuning (or partial re-pre-training), potentially negating the data-efficiency benefits of the frozen HuBERT base.
+\textbf{Cons:} Augmentation introduces additional hyperparameters (masking probability, noise levels, perturbation ranges) that require tuning.
+Aggressive augmentation may slow convergence or degrade performance on clean speech if not carefully calibrated.
 
 \section{Limitations \& Broader Impact}
 \textbf{Limitations:} The LibriSpeech dataset consists of read English audiobooks.
@@ -278,8 +279,8 @@ A. Graves, S. Fern\'{a}ndez, F. Gomez, and J. Schmidhuber, ``Connectionist tempo
 \bibitem{librispeech}
 V. Panayotov, G. Chen, D. Povey, and S. Khudanpur, ``Librispeech: An ASR corpus based on public domain audio books,'' in \textit{IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 2015, pp. 5206--5210.
 
-\bibitem{conformer}
-A. Gulati et al., ``Conformer: Convolution-augmented transformer for speech recognition,'' in \textit{Interspeech}, 2020, pp. 5036--5040.
+\bibitem{specaugment}
+D. S. Park, W. Chan, Y. Zhang, C. C. Chiu, B. Zoph, E. D. Cubuk, and Q. V. Le, ``SpecAugment: A simple data augmentation method for automatic speech recognition,'' in \textit{Interspeech}, 2019, pp. 2613--2617.
 
 \end{thebibliography}
 
