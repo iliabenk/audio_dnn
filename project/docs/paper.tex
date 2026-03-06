@@ -48,8 +48,6 @@ The objective of our project is to reproduce the final, supervised ASR fine-tuni
 \begin{figure}[htbp]
     \centering
     \textcolor{red}{\textbf{[TODO: We need to refactor and make sure this section is accurate]}}
-    \caption{Training and Validation Loss over 30 Epochs}
-    \label{fig:loss}
 \end{figure}
 This project builds upon several key advancements in self-supervised learning and ASR:
 \begin{itemize}
@@ -80,11 +78,12 @@ Our experiments are based on the 95-million parameter ``BASE'' HuBERT model \cit
 \end{figure}
 
 \subsection{Objective Function: CTC Loss}
-To map continuous audio frames to discrete text without frame-level alignment data, we utilize Connectionist Temporal Classification (CTC) loss.
-The network outputs a probability distribution over the vocabulary for each time step.
-CTC introduces a ``blank'' token, allowing the model to predict either a character or a blank at every frame.
-The loss function marginalizes over all valid sequence alignments, collapsing repeating characters separated by blank tokens (e.g., mapping ``h-h-e-e-l-l-l-o'' to ``hello'').
-This allows the network to dynamically align the variable-length speech features to the much shorter target transcripts.
+
+To map continuous audio frames to discrete text without frame-level alignment data, we utilize Connectionist Temporal Classification (CTC) loss. CTC provides an elegant solution to the alignment bottleneck by allowing the network to output a probability distribution over the vocabulary at every single time step, independent of strict temporal boundaries. 
+
+Central to this approach is the introduction of an $\epsilon$ (blank) token, which allows the model to predict either a specific character or no emission at every frame. During the decoding phase, a many-to-one mapping rule is applied: the sequence is collapsed by first merging consecutive identical characters, and then removing all $\epsilon$ tokens (e.g., reducing both ``s-s-h-h-a-a-l-o-o-m-m'' and ``s-$\epsilon$-h-a-l-$\epsilon$-o-m'' to the target ``shalom''). 
+
+Because the exact ground-truth alignment is unknown, the CTC loss function calculates the probability of the target transcript by marginalizing over the probabilities of all valid alignment paths that collapse to the correct text. By computing the negative log-likelihood of this sum via dynamic programming, the loss function allows the network to dynamically align the variable-length 50Hz speech features to the much shorter target transcripts in a mathematically differentiable manner.
 
 \subsection{Evaluation Metrics}
 Model performance was evaluated using Word Error Rate (WER).
