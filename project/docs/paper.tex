@@ -95,15 +95,63 @@ The equation for WER is calculated as:
 Where $S$ is the number of substitutions, $D$ is deletions, $I$ is insertions, and $N$ is the total number of words in the reference text.
 We calculated this using the \texttt{jiwer} package after normalizing the text (lowercasing, removing extra spaces).
 
-\subsection{Experimental Setup \& Config Management}
-\textbf{Data:} We evaluated the model on two primary training splits from the LibriSpeech dataset \cite{librispeech}: \textit{train.100} (100 hours of clean speech) and a smaller 10-hour subset.
-Utterances were filtered by duration (0.5 to 20s).
-Audio samples from the training and validation sets are attached in the accompanying supplementary files.
+\subsection{Experimental Setup}
 
-\textbf{Configuration \& Compute:} To handle varying hardware environments, we modularized our setup via YAML files (e.g., \texttt{libri-100h.yaml}, \texttt{mac.yaml}, \texttt{debug.yaml}).
-For our primary training runs, we utilized NVIDIA GPUs with FP16 mixed-precision.
-To circumvent memory constraints on 24GB VRAM cards, we utilized an effective batch size of 32 achieved through a physical batch size of 8 combined with 4 gradient accumulation steps.
-Optimization was performed using AdamW with a learning rate of $3 \times 10^{-5}$, a weight decay of 0.005, and 500 warmup steps over 30 epochs.
+\subsubsection{Dataset}
+We evaluated our pipeline on the LibriSpeech corpus \cite{librispeech}, using two training configurations:
+\begin{itemize}
+    \item \textbf{100-hour split} (\textit{train.clean.100}): The standard low-resource benchmark.
+    \item \textbf{10-hour subset}: A further constrained subset to test data efficiency.
+\end{itemize}
+All audio was resampled to 16kHz. Utterances were filtered to retain only those between 0.5 and 20 seconds in duration, removing overly short clips (insufficient context) and overly long clips (memory constraints). Evaluation was performed on four standard splits: \textit{dev-clean}, \textit{dev-other}, \textit{test-clean}, and \textit{test-other}.
+
+\subsubsection{Training Hyperparameters}
+Table~\ref{tab:hyperparams} summarizes the key hyperparameters for our 100-hour training configuration. We used the AdamW optimizer with a linear learning rate scheduler, warming up over the first 500 steps before linearly decaying to zero. The effective batch size of 32 was achieved through gradient accumulation to accommodate 24GB VRAM constraints.
+
+\begin{table}[htbp]
+\caption{Training Hyperparameters (100h Configuration)}
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+\multicolumn{2}{l}{\textit{Optimization}} \\
+Optimizer & AdamW \\
+Learning rate & $3 \times 10^{-5}$ \\
+LR scheduler & Linear decay \\
+Warmup steps & 500 \\
+Weight decay & 0.005 \\
+Epochs & 30 \\
+\midrule
+\multicolumn{2}{l}{\textit{Batching}} \\
+Batch size (per device) & 8 \\
+Gradient accumulation & 4 \\
+Effective batch size & 32 \\
+\midrule
+\multicolumn{2}{l}{\textit{Regularization}} \\
+Attention dropout & 0.1 \\
+Hidden dropout & 0.1 \\
+Layer drop & 0.1 \\
+Feature encoder & Frozen \\
+\midrule
+\multicolumn{2}{l}{\textit{Precision \& Reproducibility}} \\
+Mixed precision & FP16 (CUDA) \\
+Random seed & 42 \\
+\bottomrule
+\end{tabular}
+\label{tab:hyperparams}
+\end{table}
+
+\subsubsection{Decoding Configuration}
+We evaluated two decoding strategies:
+\begin{itemize}
+    \item \textbf{Greedy decoding:} Standard argmax over the CTC output distribution at each timestep, followed by blank removal and deduplication.
+    \item \textbf{LM-assisted beam search:} Using a 4-gram KenLM language model with beam width of 100, LM weight $\alpha = 0.5$, and word insertion bonus $\beta = 1.0$.
+\end{itemize}
+
+\subsubsection{Compute Infrastructure}
+To handle varying hardware environments, we modularized our setup via YAML configuration files (e.g., \texttt{libri-100h.yaml}, \texttt{mac.yaml}, \texttt{debug.yaml}).
+Primary training runs utilized NVIDIA GPUs with FP16 mixed-precision via PyTorch's automatic mixed precision (AMP). Development and debugging were performed on Apple Silicon (MPS) with FP32 precision due to MPS stability constraints with mixed precision.
 
 \subsection{Implementation Challenges}
 While the base model was imported, the training pipelines, collators, and device mappings were engineered from scratch to address several non-trivial engineering challenges:
