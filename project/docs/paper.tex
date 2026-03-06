@@ -35,27 +35,52 @@ Speech recognition, self-supervised learning, HuBERT, CTC, fine-tuning
 \end{IEEEkeywords}
 
 \section{Introduction}
-Self-supervised learning in Natural Language Processing (NLP) has seen immense success, but applying these techniques to speech faces unique challenges. Continuous speech contains multiple discrete sound units (phonemes) of variable lengths, with no explicit boundaries or pre-existing lexicon.
+Self-supervised learning has achieved remarkable success in NLP and computer vision, but speech presents unique challenges \cite{hubert}:
+\begin{enumerate}
+    \item \textbf{Multiple units per utterance:} Unlike images (one label) or sentences (sequential tokens), speech contains many overlapping acoustic events.
+    \item \textbf{No predefined lexicon:} Text has a fixed vocabulary; speech has no inherent discrete inventory of sound units.
+    \item \textbf{Variable-length units:} Phonemes vary in duration with no explicit boundaries, unlike pixels or word tokens.
+\end{enumerate}
 
-The HuBERT paper addresses this by learning robust speech representations through masked prediction \cite{hubert}. It uses an offline clustering step to generate pseudo-labels for audio frames, masks portions of the continuous audio input, and forces the model to predict the correct cluster assignments for the masked regions. This project focuses on the subsequent phase: taking a model pre-trained via this method and fine-tuning it for supervised ASR on the LibriSpeech dataset to prove that these hidden units can be efficiently mapped to text.
+The HuBERT paper addresses these challenges by learning robust speech representations through masked prediction \cite{hubert}. It uses an offline k-means clustering step to generate pseudo-labels for audio frames, masks portions of the continuous audio input, and trains the model to predict the cluster assignments for masked regions. Crucially, the prediction loss is applied \textit{only} to masked frames, forcing the model to learn contextual representations rather than simply memorizing cluster assignments.
+
+A key insight of HuBERT is \textit{iterative refinement}: initial pseudo-labels from k-means on MFCCs are low-quality, but the trained model's latent features are then re-clustered to produce better targets for subsequent training iterations. This bootstrapping process progressively improves representation quality.
+
+This project focuses on the subsequent phase: taking a model pre-trained via this method and fine-tuning it for supervised ASR on the LibriSpeech dataset to demonstrate that these learned representations transfer effectively to downstream speech recognition.
 
 \section{Related Work}
 This project builds upon several key advancements in self-supervised learning and ASR:
 \begin{itemize}
     \item \textbf{BERT \cite{bert}:} Introduced the masked language modeling objective, which HuBERT adapts for continuous audio.
     \item \textbf{wav2vec 2.0 \cite{wav2vec}:} A preceding model that also masks audio features but relies on a contrastive loss objective rather than predictive clustering. HuBERT was designed to simplify this by using a cross-entropy loss over discrete cluster assignments.
+    \item \textbf{DiscreteBERT:} An earlier approach that predicts masked units but takes quantized features as input, potentially losing acoustic information. HuBERT avoids this by operating on continuous waveforms and only discretizing the prediction targets.
     \item \textbf{CTC Loss \cite{ctc}:} Connectionist Temporal Classification paved the way for sequence-to-sequence audio mapping without requiring frame-level alignments, serving as the core loss function for our fine-tuning stage.
 \end{itemize}
 
 \section{Method}
 
 \subsection{Architecture}
-We utilize the 90-million parameter "Base" HuBERT architecture:
+We utilize the 95-million parameter ``BASE'' HuBERT architecture, the smallest of three configurations defined in the original paper (Table~\ref{tab:models}):
 \begin{itemize}
-    \item \textbf{CNN Feature Encoder (Frozen):} A 7-layer convolutional network extracts local acoustic features from raw 16kHz audio. This is frozen during fine-tuning to preserve pre-trained acoustic representations.
+    \item \textbf{CNN Feature Encoder (Frozen):} A 7-layer convolutional network with strides [5,2,2,2,2,2,2] extracts local acoustic features from raw 16kHz audio at 50Hz (one frame per 20ms). This is frozen during fine-tuning to preserve pre-trained acoustic representations.
     \item \textbf{Transformer Encoder (Trainable):} A 12-layer, 768-dimensional self-attention network that provides long-range contextual understanding.
     \item \textbf{CTC Head (Trainable):} A linear classification layer that projects the transformer's output into a 30-token vocabulary (lowercase letters, apostrophe, \texttt{|} for spaces, \texttt{<unk>}, and \texttt{<pad>}).
 \end{itemize}
+
+\begin{table}[htbp]
+\caption{HuBERT Model Configurations from Original Paper}
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{Layers} & \textbf{Hidden Dim} & \textbf{Params} \\
+\midrule
+BASE (ours)  & 12 & 768  & 95M \\
+LARGE        & 24 & 1024 & 317M \\
+X-LARGE      & 48 & 1280 & 1B \\
+\bottomrule
+\end{tabular}
+\label{tab:models}
+\end{table}
 
 \subsection{Evaluation Metrics}
 Model performance was evaluated using Word Error Rate (WER). The equation for WER is calculated as:
@@ -85,12 +110,15 @@ We evaluated the model using both standard Greedy decoding and Language Model (L
 \centering
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Decoding} & \textbf{dev-clean} & \textbf{dev-other} & \textbf{test-clean} & \textbf{test-other} \\
+\textbf{Model / Decoding} & \textbf{dev-clean} & \textbf{dev-other} & \textbf{test-clean} & \textbf{test-other} \\
 \midrule
+\multicolumn{5}{l}{\textit{Our Implementation (100h fine-tuning)}} \\
 Greedy        & 5.45 & 14.80 & 5.74  & 15.05 \\
 LM-assisted   & 4.30 & 11.75 & 4.62  & 11.63 \\
 \midrule
-HuBERT (paper) & --   & --    & 3.4   & 8.1   \\
+\multicolumn{5}{l}{\textit{Original Paper Baselines (100h fine-tuning)}} \\
+HuBERT BASE      & --   & --    & 3.4   & 8.1   \\
+wav2vec 2.0 BASE & --   & --    & 3.6   & 8.6   \\
 \bottomrule
 \end{tabular}
 \label{tab:results}
