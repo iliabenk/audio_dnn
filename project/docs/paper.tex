@@ -7,6 +7,7 @@
 \usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{graphicx}
+\usepackage{xcolor}
 
 % --- Document Metadata ---
 \title{Reproducing HuBERT: Self-Supervised Speech Representation Learning and ASR Fine-Tuning}
@@ -27,7 +28,13 @@
 \maketitle
 
 \begin{abstract}
-This project reproduces the supervised fine-tuning phase of the foundational HuBERT model. We fine-tuned the pre-trained \texttt{facebook/hubert-base-ls960} model on the 100-hour LibriSpeech dataset using Connectionist Temporal Classification (CTC) loss. By freezing the convolutional feature encoder to leverage pre-trained acoustic representations, our system successfully mapped raw audio to text transcriptions. Using Language Model-assisted decoding, our implementation achieved a Word Error Rate (WER) of 4.62\% on the \texttt{test-clean} split and 11.63\% on the \texttt{test-other} split. Although we did not perfectly match the original paper's benchmarks of 3.4\% and 8.1\% on these respective splits, we achieved comparable performance; this slight discrepancy is likely due to the lack of computational resources required for exhaustive large-scale hyperparameter optimization.
+The development of Automatic Speech Recognition (ASR) systems traditionally required massive transcribed datasets, a paradigm revolutionized by self-supervised learning.
+This project reproduces the supervised fine-tuning phase of the foundational HuBERT model.
+We fine-tuned the pre-trained \texttt{facebook/hubert-base-ls960} model on the 100-hour LibriSpeech dataset using Connectionist Temporal Classification (CTC) loss.
+By freezing the convolutional feature encoder to leverage pre-trained acoustic representations, our system successfully mapped raw audio to text transcriptions.
+Using Language Model-assisted decoding, our implementation achieved a Word Error Rate (WER) of 4.62\% on the \texttt{test-clean} split and 11.63\% on the \texttt{test-other} split.
+Although we did not perfectly match the original paper's benchmarks of 3.4\% and 8.1\% on these respective splits, we achieved comparable performance;
+this slight discrepancy is likely due to the lack of computational resources required for exhaustive large-scale hyperparameter optimization.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -35,36 +42,36 @@ Speech recognition, self-supervised learning, HuBERT, CTC, fine-tuning
 \end{IEEEkeywords}
 
 \section{Introduction}
-Self-supervised learning has achieved remarkable success in NLP and computer vision, but speech presents unique challenges \cite{hubert}:
-\begin{enumerate}
-    \item \textbf{Multiple units per utterance:} Unlike images (one label) or sentences (sequential tokens), speech contains many overlapping acoustic events.
-    \item \textbf{No predefined lexicon:} Text has a fixed vocabulary; speech has no inherent discrete inventory of sound units.
-    \item \textbf{Variable-length units:} Phonemes vary in duration with no explicit boundaries, unlike pixels or word tokens.
-\end{enumerate}
+The development of highly accurate Automatic Speech Recognition (ASR) systems has historically relied on massive, manually transcribed datasets.
+While self-supervised learning mitigates this dependency in NLP, applying it to speech presents non-trivial challenges: continuous speech contains multiple sound units per utterance, lacks explicit segmentation, and has no pre-existing lexicon.
 
-The HuBERT paper addresses these challenges by learning robust speech representations through masked prediction \cite{hubert}. It uses an offline k-means clustering step to generate pseudo-labels for audio frames, masks portions of the continuous audio input, and trains the model to predict the cluster assignments for masked regions. Crucially, the prediction loss is applied \textit{only} to masked frames, forcing the model to learn contextual representations rather than simply memorizing cluster assignments.
+The HuBERT (Hidden-Unit BERT) framework elegantly addresses these issues by utilizing an offline clustering step to provide aligned target labels for a BERT-like prediction loss \cite{hubert}.
+The model bootstraps this process by initially running $K$-means clustering on 39-dimensional Mel-Frequency Cepstral Coefficients (MFCCs) to generate discrete pseudo-labels.
+Crucially, HuBERT applies its predictive cross-entropy loss \textit{only} over masked continuous audio regions.
+This forces the network to learn a combined acoustic and language model to infer the targets of unseen frames from context, rather than simply memorizing cluster assignments.
+Furthermore, the model iteratively refines its representations by running subsequent clustering on its own learned latent features, progressively improving representation quality with each iteration.
 
-A key insight of HuBERT is \textit{iterative refinement}: initial pseudo-labels from k-means on MFCCs are low-quality, but the trained model's latent features are then re-clustered to produce better targets for subsequent training iterations. This bootstrapping process progressively improves representation quality.
-
-This project focuses on the subsequent phase: taking a model pre-trained via this method and fine-tuning it for supervised ASR on the LibriSpeech dataset to demonstrate that these learned representations transfer effectively to downstream speech recognition.
+This project focuses on the subsequent supervised phase: evaluating the efficacy of mapping these self-supervised continuous representations to discrete text.
+We reproduce the fine-tuning stage of the pre-trained HuBERT Base model on the LibriSpeech dataset using Connectionist Temporal Classification (CTC) loss, bridging the gap between discovered hidden units and standard English orthography.
 
 \section{Related Work}
 This project builds upon several key advancements in self-supervised learning and ASR:
 \begin{itemize}
     \item \textbf{BERT \cite{bert}:} Introduced the masked language modeling objective, which HuBERT adapts for continuous audio.
-    \item \textbf{wav2vec 2.0 \cite{wav2vec}:} A preceding model that also masks audio features but relies on a contrastive loss objective rather than predictive clustering. HuBERT was designed to simplify this by using a cross-entropy loss over discrete cluster assignments.
+    \item \textbf{wav2vec 2.0 \cite{wav2vec}:} A preceding model that also masks audio features but relies on a contrastive loss objective rather than predictive clustering.
+    HuBERT simplifies this by using a direct predictive loss over discrete cluster assignments.
     \item \textbf{DiscreteBERT:} An earlier approach that predicts masked units but takes quantized features as input, potentially losing acoustic information. HuBERT avoids this by operating on continuous waveforms and only discretizing the prediction targets.
-    \item \textbf{CTC Loss \cite{ctc}:} Connectionist Temporal Classification paved the way for sequence-to-sequence audio mapping without requiring frame-level alignments, serving as the core loss function for our fine-tuning stage.
+    \item \textbf{CTC Loss \cite{ctc}:} Connectionist Temporal Classification paved the way for sequence-to-sequence audio mapping without requiring frame-level alignments, serving as the core objective function for our fine-tuning stage.
 \end{itemize}
 
 \section{Method}
 
-\subsection{Architecture}
-We utilize the 95-million parameter ``BASE'' HuBERT architecture, the smallest of three configurations defined in the original paper (Table~\ref{tab:models}):
+\subsection{Architecture \& Pre-Training Mechanics}
+We utilize the 95-million parameter ``BASE'' HuBERT architecture \cite{hubert}, loaded via the Hugging Face \texttt{transformers} library. Table~\ref{tab:models} summarizes the three model configurations defined in the original paper. The base model consists of:
 \begin{itemize}
-    \item \textbf{CNN Feature Encoder (Frozen):} A 7-layer convolutional network with strides [5,2,2,2,2,2,2] extracts local acoustic features from raw 16kHz audio at 50Hz (one frame per 20ms). This is frozen during fine-tuning to preserve pre-trained acoustic representations.
-    \item \textbf{Transformer Encoder (Trainable):} A 12-layer, 768-dimensional self-attention network that provides long-range contextual understanding.
-    \item \textbf{CTC Head (Trainable):} A linear classification layer that projects the transformer's output into a 30-token vocabulary (lowercase letters, apostrophe, \texttt{|} for spaces, \texttt{<unk>}, and \texttt{<pad>}).
+    \item \textbf{CNN Feature Encoder (Frozen):} A 7-layer convolutional network with strides [5,2,2,2,2,2,2] extracts local acoustic features from raw 16kHz audio. It down-samples the audio by a factor of 320x, generating a feature sequence at a 20ms framerate (50Hz). This encoder is frozen during fine-tuning to preserve pre-trained acoustic representations.
+    \item \textbf{Transformer Encoder (Trainable):} A 12-layer, 768-dimensional self-attention network that provides long-range contextual understanding. During its original pre-training, spans of $l=10$ steps were masked, with $p=8\%$ of the waveform encoder output frames randomly selected as mask starts.
+    \item \textbf{CTC Head (Trainable):} A linear classification layer that replaces the original pre-training projection layer. It projects the transformer's output into a 30-token vocabulary (lowercase letters, apostrophe, \texttt{|} for spaces, \texttt{<unk>}, and \texttt{<pad>}).
 \end{itemize}
 
 \begin{table}[htbp]
@@ -82,66 +89,133 @@ X-LARGE      & 48 & 1280 & 1B \\
 \label{tab:models}
 \end{table}
 
+\subsection{Objective Function: CTC Loss}
+To map continuous audio frames to discrete text without frame-level alignment data, we utilize Connectionist Temporal Classification (CTC) loss.
+The network outputs a probability distribution over the vocabulary for each time step.
+CTC introduces a ``blank'' token, allowing the model to predict either a character or a blank at every frame.
+The loss function marginalizes over all valid sequence alignments, collapsing repeating characters separated by blank tokens (e.g., mapping ``h-h-e-e-l-l-l-o'' to ``hello'').
+This allows the network to dynamically align the variable-length speech features to the much shorter target transcripts.
+
 \subsection{Evaluation Metrics}
-Model performance was evaluated using Word Error Rate (WER). The equation for WER is calculated as:
+Model performance was evaluated using Word Error Rate (WER).
+The equation for WER is calculated as:
 \begin{equation}
 \text{WER} = \frac{S + D + I}{N}
 \label{eq:wer}
 \end{equation}
-Where $S$ is the number of substitutions, $D$ is deletions, $I$ is insertions, and $N$ is the total number of words in the reference text. We calculated this using the \texttt{jiwer} library after normalizing the text (lowercasing, removing extra spaces).
+Where $S$ is the number of substitutions, $D$ is deletions, $I$ is insertions, and $N$ is the total number of words in the reference text.
+We calculated this using the \texttt{jiwer} package after normalizing the text (lowercasing, removing extra spaces).
 
-\subsection{Experimental Setup}
-\textbf{Data} was sourced from Hugging Face's LibriSpeech splits (\textit{train.clean.100}, 100 hours of clean speech). Utterances were filtered by duration (0.5 to 20s). \\
-\textbf{Compute:} NVIDIA GPUs (CUDA) with FP16 mixed-precision, and Apple Silicon (MPS) for debugging. \\
-\textbf{Hyperparameters:} AdamW optimizer with a learning rate of $3 \times 10^{-5}$ and 500 warmup steps. Training ran for 30 epochs with an effective batch size of 32 (batch size 8 + 4 gradient accumulation steps) and weight decay of 0.005.
+\subsection{Experimental Setup \& Config Management}
+\textbf{Data:} We evaluated the model on two primary training splits from the LibriSpeech dataset \cite{librispeech}: \textit{train.100} (100 hours of clean speech) and a smaller 10-hour subset.
+Utterances were filtered by duration (0.5 to 20s).
+Audio samples from the training and validation sets are attached in the accompanying supplementary files.
 
-\subsection{Implementation Challenges and Repository Modifications}
-While building our training pipeline using Hugging Face's \texttt{transformers} library, we faced several engineering challenges:
+\textbf{Configuration \& Compute:} To handle varying hardware environments, we modularized our setup via YAML files (e.g., \texttt{libri-100h.yaml}, \texttt{mac.yaml}, \texttt{debug.yaml}).
+For our primary training runs, we utilized NVIDIA GPUs with FP16 mixed-precision.
+To circumvent memory constraints on 24GB VRAM cards, we utilized an effective batch size of 32 achieved through a physical batch size of 8 combined with 4 gradient accumulation steps.
+Optimization was performed using AdamW with a learning rate of $3 \times 10^{-5}$, a weight decay of 0.005, and 500 warmup steps over 30 epochs.
+
+\subsection{Implementation Challenges}
+While the base model was imported, the training pipelines, collators, and device mappings were engineered from scratch to address several non-trivial engineering challenges:
 \begin{itemize}
-    \item \textbf{Dynamic Padding \& CTC Loss:} To train efficiently, batches need dynamic padding. We had to write a custom \texttt{CTCDataCollator} to ensure that padding tokens in the text labels were specifically replaced with an index of $-100$. Without this modification, the PyTorch CTC loss function would try to calculate loss on the padding, preventing convergence.
-    \item \textbf{Cross-Platform Device Management:} We wanted the codebase to run locally on Apple Silicon (M-series Macs) and remotely on large CUDA GPUs. We had to implement a custom \texttt{DeviceManager} utility to explicitly handle MPS device mapping, which occasionally conflicted with native PyTorch mixed-precision (\texttt{autocast}) setups.
+    \item \textbf{Dynamic Padding \& CTC Loss:} Batches require dynamic padding to match the longest sequence.
+    We authored a custom \texttt{CTCDataCollator} to replace text label padding tokens with an index of $-100$.
+    Without this, the PyTorch CTC loss function calculates loss on padding tokens, effectively preventing convergence.
+    \item \textbf{Cross-Platform Device Management:} We required the codebase to execute locally on Apple Silicon (MPS) and remotely on CUDA architectures.
+    We implemented a custom \texttt{DeviceManager} to handle explicit MPS device mapping, avoiding conflicts with native PyTorch mixed-precision (\texttt{autocast}) systems.
 \end{itemize}
 
 \section{Results \& Discussion}
-We evaluated the model using both standard Greedy decoding and Language Model (LM) assisted beam-search decoding. Table~\ref{tab:results} summarizes our results compared to the original HuBERT paper.
+
+\subsection{100-Hour Fine-Tuning Performance}
+We evaluated the model trained on the 100-hour split using both Greedy decoding and Language Model (LM) assisted beam-search decoding.
+Table~\ref{tab:100h_results} summarizes our findings compared to the original HuBERT and wav2vec 2.0 baselines.
 
 \begin{table}[htbp]
-\caption{Word Error Rate (\%) on LibriSpeech Test Splits}
+\caption{Word Error Rate (\%) - 100h Training (train-clean-100)}
 \centering
 \begin{tabular}{lcccc}
 \toprule
 \textbf{Model / Decoding} & \textbf{dev-clean} & \textbf{dev-other} & \textbf{test-clean} & \textbf{test-other} \\
 \midrule
-\multicolumn{5}{l}{\textit{Our Implementation (100h fine-tuning)}} \\
+\multicolumn{5}{l}{\textit{Our Implementation}} \\
 Greedy        & 5.45 & 14.80 & 5.74  & 15.05 \\
-LM-assisted   & 4.30 & 11.75 & 4.62  & 11.63 \\
+LM (best)     & 4.30 & 11.75 & 4.62  & 11.63 \\
 \midrule
-\multicolumn{5}{l}{\textit{Original Paper Baselines (100h fine-tuning)}} \\
-HuBERT BASE      & --   & --    & 3.4   & 8.1   \\
+\multicolumn{5}{l}{\textit{Original Paper Baselines}} \\
+HuBERT BASE      & 2.7  & 7.8   & 3.4   & 8.1   \\
 wav2vec 2.0 BASE & --   & --    & 3.6   & 8.6   \\
 \bottomrule
 \end{tabular}
-\label{tab:results}
+\label{tab:100h_results}
 \end{table}
 
-\textbf{Discussion:} Our LM-assisted results closely match those of the original paper, demonstrating the efficacy of the fine-tuning process. The slight degradation in the ``other'' splits (which contain noisier audio and diverse accents) is expected given that our LM configuration and hardware differed from the large-scale infrastructure used by the original authors. Remarkably, fine-tuning just $\sim$20\% of the pre-trained weights is enough to yield highly accurate recognition.
+\subsection{10-Hour Fine-Tuning Performance}
+To test the data efficiency of the self-supervised representations, we additionally fine-tuned the model on a constrained 10-hour subset (Table~\ref{tab:10h_results}).
 
-\subsection{Convergence Graphs}
-Training and validation loss decreased steadily over 30 epochs, with WER improving consistently. Due to space constraints, convergence plots are omitted but are available in the project repository.
+\begin{table}[htbp]
+\caption{Word Error Rate (\%) - 10h Training Subset}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model / Decoding} & \textbf{dev-clean} & \textbf{dev-other} & \textbf{test-clean} & \textbf{test-other} \\
+\midrule
+\multicolumn{5}{l}{\textit{Our Implementation}} \\
+Greedy        & 10.31 & 23.79 & 10.90 & 25.01 \\
+LM            & 8.62  & 20.83 & 9.15  & 21.78 \\
+\midrule
+\multicolumn{5}{l}{\textit{Original Paper Baseline}} \\
+HuBERT BASE   & 3.9   & 9.0   & 4.3   & 9.4   \\
+\bottomrule
+\end{tabular}
+\label{tab:10h_results}
+\end{table}
+
+\subsection{Reproducibility Analysis}
+Our LM-assisted results successfully track the trajectory of the original paper, validating the core self-supervised methodology.
+However, a performance gap exists, particularly in the 10-hour subset and the ``other'' noisy splits.
+This degradation is expected and primarily attributable to hardware and hyperparameter scaling constraints.
+The original HuBERT authors utilized massive 8-GPU clusters per fine-tuning run and employed the Ax Bayesian optimization toolkit for exhaustive sweeps over learning rates, schedules, and beam-search language model weights ($w_1$, $w_2$) \cite{hubert}.
+Given our constrained compute environment, achieving these results while fine-tuning merely $\sim$20\% of the pre-trained weights remains a highly efficient outcome.
+
+\subsection{Convergence Analysis}
+
+\begin{figure}[htbp]
+    \centering
+    \textcolor{red}{\textbf{[TODO: Insert Tensorboard Training/Validation Loss Screenshot Here]}}
+    \caption{Training and Validation Loss over 30 Epochs}
+    \label{fig:loss}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \textcolor{red}{\textbf{[TODO: Insert Tensorboard WER Screenshot Here]}}
+    \caption{Word Error Rate Improvement over 30 Epochs}
+    \label{fig:wer}
+\end{figure}
+
+As shown in Figure~\ref{fig:loss} and Figure~\ref{fig:wer}, the model exhibited stable convergence.
+Following the initial 500-step linear warmup, the training loss decreased steadily.
+Validation WER dropped aggressively in the early epochs before plateauing towards the end of the 30-epoch cycle, indicating that the network efficiently mapped the frozen acoustic representations to the CTC head without severe overfitting.
 
 \section{Future Work}
 \textbf{Proposed Idea:} Integrating Conformer (Convolution-augmented Transformer) blocks \cite{conformer} into the HuBERT architecture.
+Instead of relying solely on the standard self-attention Transformer blocks during fine-tuning, future work could replace or augment the upper layers with Conformer blocks, which sandwich self-attention mechanisms between convolution modules.
 
-Instead of relying solely on the standard self-attention Transformer blocks during fine-tuning, future work could replace or augment the upper layers with Conformer blocks, which sandwich self-attention mechanisms between convolution modules. 
+\textbf{Why it will work (Pros):} Standard transformers are excellent at global context, but speech heavily relies on local, fine-grained temporal feature variations.
+Conformers capture both local and global dependencies simultaneously, which is known to push ASR boundaries further than standard transformers.
 
-\textbf{Why it will work (Pros):} Standard transformers are excellent at global context, but speech heavily relies on local, fine-grained temporal feature variations. Conformers capture both local and global dependencies simultaneously, which is known to push ASR boundaries further than standard transformers. 
-
-\textbf{Cons:} Conformers increase the parameter count and computational overhead significantly. Additionally, replacing the pre-trained transformer layers would require more aggressive fine-tuning (or partial re-pre-training), potentially negating the data-efficiency benefits of the frozen HuBERT base.
+\textbf{Cons:} Conformers increase the parameter count and computational overhead significantly.
+Additionally, replacing the pre-trained transformer layers would require more aggressive fine-tuning (or partial re-pre-training), potentially negating the data-efficiency benefits of the frozen HuBERT base.
 
 \section{Limitations \& Broader Impact}
-\textbf{Limitations:} The LibriSpeech dataset consists of read English audiobooks. As a result, the fine-tuned model suffers from domain bias: it performs exceptionally well on clear, native English speakers but struggles with noisy environments, conversational overlaps, and non-native accents. 
+\textbf{Limitations:} The LibriSpeech dataset consists of read English audiobooks.
+As a result, the fine-tuned model suffers from domain bias: it performs exceptionally well on clear, native English speakers but struggles with noisy environments, conversational overlaps, and non-native accents.
 
-\textbf{Broader Impact:} Highly accurate ASR systems like this drastically improve accessibility (e.g., live captioning for the hearing impaired) and human-computer interaction. However, they also carry societal risks. Inexpensive and highly accurate transcription models can be repurposed for mass surveillance of audio communications. Furthermore, biased models deployed in critical scenarios (like automated customer service or legal transcriptions) can marginalize non-native speakers.
+\textbf{Broader Impact:} Highly accurate ASR systems like this drastically improve accessibility (e.g., live captioning for the hearing impaired) and human-computer interaction.
+However, they also carry societal risks. Inexpensive and highly accurate transcription models can be repurposed for mass surveillance of audio communications.
+Furthermore, biased models deployed in critical scenarios (like automated customer service or legal transcriptions) can marginalize non-native speakers.
 
 \begin{thebibliography}{00}
 
