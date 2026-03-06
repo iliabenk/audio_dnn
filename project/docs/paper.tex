@@ -149,6 +149,13 @@ We evaluated two decoding strategies:
     \item \textbf{LM-assisted beam search:} Using a 4-gram KenLM language model with beam width of 100, LM weight $\alpha = 0.5$, and word insertion bonus $\beta = 1.0$.
 \end{itemize}
 
+\subsubsection{Hyperparameter Search}
+To identify optimal configurations, we conducted two systematic grid searches:
+
+\textbf{Training Hyperparameters:} We explored 54 combinations over learning rate $\in \{5 \times 10^{-5}, 1 \times 10^{-4}, 2 \times 10^{-4}\}$, scheduler type $\in \{\text{linear}, \text{cosine}\}$, weight decay $\in \{0.0, 0.005, 0.01\}$, and warmup steps $\in \{200, 500, 1000\}$. Each configuration was evaluated on validation WER, with the best results achieved using the parameters in Table~\ref{tab:hyperparams}.
+
+\textbf{LM Decoding Parameters:} We performed an exhaustive search over 48 combinations of beam width $\in \{50, 100, 200\}$, LM weight $\alpha \in \{0.3, 0.5, 0.7, 1.0\}$, and word insertion bonus $\beta \in \{0.5, 1.0, 1.5, 2.0\}$. The optimal configuration (beam width = 100, $\alpha = 0.5$, $\beta = 1.0$) yielded the best WER on \textit{test-clean}.
+
 \subsubsection{Compute Infrastructure}
 To handle varying hardware environments, we modularized our setup via YAML configuration files (e.g., \texttt{libri-100h.yaml}, \texttt{mac.yaml}, \texttt{debug.yaml}).
 Primary training runs utilized NVIDIA GPUs with FP16 mixed-precision via PyTorch's automatic mixed precision (AMP). Development and debugging were performed on Apple Silicon (MPS) with FP32 precision due to MPS stability constraints with mixed precision.
