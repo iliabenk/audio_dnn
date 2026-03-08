@@ -57,6 +57,7 @@ dev_flags:
     aci.apple.com/adb-outofservice,npd.aci.apple.com/nodeuok-unhealthy,npd.aci.apple.com/os-unhealthy,npd.aci.apple.com/cst-pressure,bolt.apple.com/capacity-validation,bolt.apple.com/node-health,aci.apple.com/new-node,npd.aci.apple.com/nodeuok-unhealthy,maintenance.kube.apple.com/pending-maintenance,maintenance.kube.apple.com/maintenance-unhealthy,npd.aci.apple.com/scriptexporter-unhealthy,aci.apple.com/adb-outofservice,handoff.kube.apple.com/out-of-service
 
 environment_variables:
+  HF_AUDIO_DECODER: "soundfile"
   IRISCTL_ALIVENESS_CHECK_INTERVAL: '1200'
   IRISCTL_DISABLE_BOLT_PREFLIGHT_GPU_CHECK: 1
   BOLT_DEV_KUBE_CLUSTER_ROUTABLE: "1"
