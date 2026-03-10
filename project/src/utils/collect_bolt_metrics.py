@@ -68,15 +68,20 @@ def generate_paper_figures(metrics, output_dir):
         ("test-clean", metrics.get("eval_test_clean_wer", []), "^", "-"),
         ("test-other", metrics.get("eval_test_other_wer", []), "D", "-"),
     ]
-    fig, ax = plt.subplots(figsize=(6, 4))
-    for label, values, marker, linestyle in wer_series:
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    for i, (label, values, marker, linestyle) in enumerate(wer_series):
         if values:
-            ax.plot(epoch_axis(values), values, label=label, marker=marker, markersize=3, linestyle=linestyle)
-    ax.set_yscale("log")
+            values_pct = [v * 100 for v in values]
+            min_val = min(values_pct)
+            color = colors[i % len(colors)]
+            ax.plot(epoch_axis(values_pct), values_pct, label=f"{label} (min: {min_val:.2f}%)",
+                    marker=marker, markersize=3, linestyle=linestyle, color=color)
+            ax.axhline(y=min_val, color=color, linestyle=":", alpha=0.4, linewidth=0.8)
     ax.set_xlabel("Epoch")
     ax.set_ylabel("WER (%)")
-    ax.set_title("Word Error Rate over Training")
-    ax.legend()
+    ax.set_title("Word Error Rate over Training (Greedy Decoding)")
+    ax.legend(fontsize="small")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     wer_path = os.path.join(output_dir, "wer.png")
@@ -88,8 +93,8 @@ def generate_paper_figures(metrics, output_dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Collect Bolt metrics and generate paper figures")
     parser.add_argument("--bolt-id", default="4rkpchk6wq", help="Bolt task ID")
-    parser.add_argument("--prefix", default="libri-100h-eval-other-run-2", help="Metric prefix to filter by (e.g. libri-100h-eval-other-run-2)")
-    parser.add_argument("--from-yaml", type=str, default=None, help="Load metrics from a YAML file instead of Bolt")
+    parser.add_argument("--prefix", default=None, help="Metric prefix to filter by (e.g. libri-100h-eval-other-run-2)")
+    parser.add_argument("--from-yaml", type=str, default="bolt_metrics_libri-100h-eval-other-run-2.yaml", help="Load metrics from a YAML file instead of Bolt")
     parser.add_argument("--dump-yaml", action="store_true", help="Dump metrics to YAML file")
     parser.add_argument("--output-dir", default="project/docs", help="Directory for generated figures")
     args = parser.parse_args()
