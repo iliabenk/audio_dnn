@@ -28,7 +28,8 @@
 \maketitle
 
 \begin{abstract}
-The development of Automatic Speech Recognition (ASR) systems traditionally required massive transcribed datasets and extensive manual feature engineering by domain experts. This paradigm has shifted significantly with the advent of self-supervised learning, which extracts robust acoustic representations directly from raw audio. 
+The development of Automatic Speech Recognition (ASR) systems traditionally required massive transcribed datasets and extensive manual feature engineering by domain experts.
+This paradigm has shifted significantly with the advent of self-supervised learning, which extracts robust acoustic representations directly from raw audio.
 This project reproduces the supervised fine-tuning phase of the foundational HuBERT model.
 We fine-tuned the pre-trained \texttt{facebook/hubert-base-ls960} model on the 100-hour and 10-hour LibriSpeech datasets using Connectionist Temporal Classification (CTC) loss.
 By freezing the convolutional feature encoder to leverage pre-trained acoustic representations, our system successfully mapped raw audio to text transcriptions.
@@ -38,18 +39,28 @@ this slight discrepancy is likely due to the lack of computational resources req
 \end{abstract}
 
 \section{Introduction}
-The development of highly accurate Automatic Speech Recognition (ASR) systems has historically been bottlenecked by the need for massive datasets, requiring thousands of hours of audio to be meticulously transcribed by human experts. While self-supervised learning (SSL) architectures like the BERT model have successfully mitigated this data dependency in Natural Language Processing (NLP), applying these same paradigms directly to audio presents non-trivial challenges. Unlike text, continuous speech lacks explicit segmentation, contains multiple variable-length sound units per utterance, and operates without a pre-existing discrete lexicon.
+The development of highly accurate Automatic Speech Recognition (ASR) systems has historically been bottlenecked by the need for massive datasets, requiring thousands of hours of audio to be meticulously transcribed by human experts.
+While self-supervised learning (SSL) architectures like the BERT model have successfully mitigated this data dependency in Natural Language Processing (NLP), applying these same paradigms directly to audio presents non-trivial challenges.
+Unlike text, continuous speech lacks explicit segmentation, contains multiple variable-length sound units per utterance, and operates without a pre-existing discrete lexicon.
+The HuBERT (Hidden-Unit BERT) framework resolves the continuous-to-discrete mapping problem through a self-supervised masked prediction objective tied to offline clustering.
+Initially, a $K$-means algorithm is applied to Mel-Frequency Cepstral Coefficients (MFCCs) to produce discrete, aligned target labels for each audio frame.
+The core innovation lies in applying a BERT-like cross-entropy loss strictly over masked input regions.
+This masking strategy forces the network to infer the acoustic and linguistic targets of unseen frames from broader temporal context.
+This allows the model to iteratively build robust latent representations of speech, which are then used as the clustering targets for subsequent training generations.
+The objective of our project is to reproduce the final, supervised ASR fine-tuning pipeline of the HuBERT framework.
+Rather than retraining the initial latent representations, we leverage the pre-trained \texttt{facebook/hubert-base-ls960} model to evaluate its discrete mapping capabilities.
+By intentionally freezing the convolutional feature-extraction layers, we isolate the fine-tuning process to the contextual transformer and the CTC classification head.
+We train this pipeline on the 100-hour and 10-hour LibriSpeech subsets, using CTC loss to resolve the length mismatch between the continuous audio frames and the 30-token target transcripts, thereby proving that these unsupervised features can serve as a highly efficient foundation for speech-to-text systems.
 
-The HuBERT (Hidden-Unit BERT) framework resolves the continuous-to-discrete mapping problem through a self-supervised masked prediction objective tied to offline clustering. Initially, a $K$-means algorithm is applied to Mel-Frequency Cepstral Coefficients (MFCCs) to produce discrete, aligned target labels for each audio frame. The core innovation lies in applying a BERT-like cross-entropy loss strictly over masked input regions. This masking strategy forces the network to infer the acoustic and linguistic targets of unseen frames from broader temporal context. This allows the model to iteratively build robust latent representations of speech, which are then used as the clustering targets for subsequent training generations.
-
-The objective of our project is to reproduce the final, supervised ASR fine-tuning pipeline of the HuBERT framework. Rather than retraining the initial latent representations, we leverage the pre-trained \texttt{facebook/hubert-base-ls960} model to evaluate its discrete mapping capabilities. By intentionally freezing the convolutional feature-extraction layers, we isolate the fine-tuning process to the contextual transformer and the CTC classification head. We train this pipeline on the 100-hour and 10-hour LibriSpeech subsets, using CTC loss to resolve the length mismatch between the continuous audio frames and the 30-token target transcripts, thereby proving that these unsupervised features can serve as a highly efficient foundation for speech-to-text systems.
 \section{Related Work}
 
 This project builds upon several key advancements in self-supervised learning and ASR:
 \begin{itemize}
     \item \textbf{BERT \cite{bert}:} Introduced the masked language modeling objective, which inspired HuBERT’s masked prediction framework for speech.
-    \item \textbf{wav2vec 2.0 \cite{wav2vec}:} A preceding self-supervised speech model that masks latent audio features and trains them with a contrastive objective. In contrast, HuBERT predicts offline-generated discrete cluster labels for masked frames using a classification loss.
-    \item \textbf{DiscreteBERT:} An earlier approach that predicts masked discrete speech units from quantized inputs, which may discard some acoustic detail. HuBERT instead operates on continuous speech representations while using discretized cluster assignments only as prediction targets.
+    \item \textbf{wav2vec 2.0 \cite{wav2vec}:} A preceding self-supervised speech model that masks latent audio features and trains them with a contrastive objective.
+    In contrast, HuBERT predicts offline-generated discrete cluster labels for masked frames using a classification loss.
+    \item \textbf{DiscreteBERT:} An earlier approach that predicts masked discrete speech units from quantized inputs, which may discard some acoustic detail.
+    HuBERT instead operates on continuous speech representations while using discretized cluster assignments only as prediction targets.
     \item \textbf{CTC Loss \cite{ctc}:} Connectionist Temporal Classification enables speech recognition training without frame-level alignments and serves as the objective used in the fine-tuning stage.
 \end{itemize}
 
@@ -57,28 +68,39 @@ This project builds upon several key advancements in self-supervised learning an
 
 \subsection{Architecture \& Pre-Training Mechanics}
 
-Our experiments are based on the 95M parameter ``BASE'' HuBERT model \cite{hubert} implemented using the Hugging Face \texttt{transformers} library. For our fine-tuning pipeline, the architecture is divided into three functional stages:
+Our experiments are based on the 95M parameter ``BASE'' HuBERT model \cite{hubert} implemented using the Hugging Face \texttt{transformers} library.
+For our fine-tuning pipeline, the architecture is divided into three functional stages:
 
 \begin{itemize}
-    \item \textbf{Acoustic Feature Extraction (Frozen):} Raw 16kHz audio is processed by a 7-layer convolutional network (strides: [5, 2, 2, 2, 2, 2, 2]). This reduces the sample rate by a factor of 320x to a 50Hz framerate. By freezing these layers entirely, we lock in the robust self-supervised acoustic representations while significantly reducing computational overhead and maintaining a manageable project scope.
-    \item \textbf{Contextual Encoding (Trainable):} A linear projection layer maps the CNN outputs to the transformer's hidden dimension. The core contextual encoder is a 12-layer, 768-dimensional, 12-head self-attention network equipped with a convolutional positional embedding layer to encode temporal sequence order. In the original unsupervised phase, it was trained by masking spans of $l=10$ steps using a $p=8\%$ masking probability. In our supervised phase, this network is actively fine-tuned.
-    \item \textbf{Token Classification (Trainable):} The original unsupervised pre-training head is discarded. In its place, we append a linear CTC layer that maps the contextual encodings to a discrete 30-token vocabulary, encompassing lowercase letters, an apostrophe, word separators, \texttt{<unk>}, and \texttt{<pad>}.
+    \item \textbf{Acoustic Feature Extraction (Frozen):} Raw 16kHz audio is processed by a 7-layer convolutional network (strides: [5, 2, 2, 2, 2, 2, 2]).
+    This reduces the sample rate by a factor of 320x to a 50Hz framerate.
+    By freezing these layers entirely, we lock in the robust self-supervised acoustic representations while significantly reducing computational overhead and maintaining a manageable project scope.
+    \item \textbf{Contextual Encoding (Trainable):} A linear projection layer maps the CNN outputs to the transformer's hidden dimension.
+    The core contextual encoder is a 12-layer, 768-dimensional, 12-head self-attention network equipped with a convolutional positional embedding layer to encode temporal sequence order.
+    In the original unsupervised phase, it was trained by masking spans of $l=10$ steps using a $p=8\%$ masking probability.
+    In our supervised phase, this network is actively fine-tuned.
+    \item \textbf{Token Classification (Trainable):} The original unsupervised pre-training head is discarded.
+    In its place, we append a linear CTC layer that maps the contextual encodings to a discrete 30-token vocabulary, encompassing lowercase letters, an apostrophe, word separators, \texttt{<unk>}, and \texttt{<pad>}.
 \end{itemize}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\columnwidth]{hubert archirtecture.png}
-    \caption{The HuBERT approach predicts hidden cluster assignments of masked frames ($y_2, y_3, y_4$ in the figure) generated by one or more iterations of $k$-means clustering. The model comprises a CNN encoder and Transformer that down-samples raw audio and applies masking to contiguous frame spans. A cross-entropy loss is computed only on predictions for masked positions, forcing the model to infer targets from temporal context. Adapted from \cite{hubert}.}
+    \caption{The HuBERT approach predicts hidden cluster assignments of masked frames ($y_2, y_3, y_4$ in the figure) generated by one or more iterations of $k$-means clustering.
+    The model comprises a CNN encoder and Transformer that down-samples raw audio and applies masking to contiguous frame spans.
+    A cross-entropy loss is computed only on predictions for masked positions, forcing the model to infer targets from temporal context.
+    Adapted from \cite{hubert}. For a comprehensive visual breakdown of this architecture, see \cite{hubert_visual}.}
     \label{fig:hubert-pretrain}
 \end{figure}
 
 \subsection{Objective Function: CTC Loss}
 
-To map continuous audio frames to discrete text without frame-level alignment data, we utilize Connectionist Temporal Classification (CTC) loss. CTC provides an elegant solution to the alignment bottleneck by allowing the network to output a probability distribution over the vocabulary at every single time step, independent of strict temporal boundaries. 
-
-Central to this approach is the introduction of an $\epsilon$ (blank) token, which allows the model to predict either a specific character or no emission at every frame. During the decoding phase, a many-to-one mapping rule is applied: the sequence is collapsed by first merging consecutive identical characters, and then removing all $\epsilon$ tokens (e.g., reducing both ``s-s-h-h-a-a-l-o-o-m-m'' and ``s-$\epsilon$-h-a-l-$\epsilon$-o-m'' to the target ``shalom''). 
-
-Because the exact ground-truth alignment is unknown, the CTC loss function calculates the probability of the target transcript by marginalizing over the probabilities of all valid alignment paths that collapse to the correct text. By computing the negative log-likelihood of this sum via dynamic programming, the loss function allows the network to dynamically align the variable-length 50Hz speech features to the much shorter target transcripts in a mathematically differentiable manner.
+To map continuous audio frames to discrete text without frame-level alignment data, we utilize Connectionist Temporal Classification (CTC) loss.
+CTC provides an elegant solution to the alignment bottleneck by allowing the network to output a probability distribution over the vocabulary at every single time step, independent of strict temporal boundaries.
+Central to this approach is the introduction of an $\epsilon$ (blank) token, which allows the model to predict either a specific character or no emission at every frame.
+During the decoding phase, a many-to-one mapping rule is applied: the sequence is collapsed by first merging consecutive identical characters, and then removing all $\epsilon$ tokens (e.g., reducing both ``s-s-h-h-a-a-l-o-o-m-m'' and ``s-$\epsilon$-h-a-l-$\epsilon$-o-m'' to the target ``shalom'').
+Because the exact ground-truth alignment is unknown, the CTC loss function calculates the probability of the target transcript by marginalizing over the probabilities of all valid alignment paths that collapse to the correct text.
+By computing the negative log-likelihood of this sum via dynamic programming, the loss function allows the network to dynamically align the variable-length 50Hz speech features to the much shorter target transcripts in a mathematically differentiable manner \cite{ctc_distill}.
 
 \subsection{Evaluation Metrics}
 Model performance was evaluated using Word Error Rate (WER).
@@ -97,12 +119,16 @@ We evaluated our pipeline on the LibriSpeech corpus \cite{librispeech}, using mu
 \begin{itemize}
     \item \textbf{100-hour split} (\textit{train.clean.100}): The standard low-resource benchmark.
     \item \textbf{10-hour subset}: A further constrained subset to test data efficiency.
-    \item \textbf{1-hour and 10-minute subsets}: Attempted but proved highly unstable; minor hyperparameter changes caused WER to fluctuate between 50--100\%, making reliable reproduction infeasible within our compute budget.
+    \item \textbf{1-hour and 10-minute subsets}: Attempted but proved highly unstable;
+    minor hyperparameter changes caused WER to fluctuate between 50--100\%, making reliable reproduction infeasible within our compute budget.
 \end{itemize}
-All audio was resampled to 16kHz. Utterances were filtered to retain only those between 0.5 and 20 seconds in duration, removing overly short clips (insufficient context) and overly long clips (memory constraints). Evaluation was performed on four standard splits: \textit{dev-clean}, \textit{dev-other}, \textit{test-clean}, and \textit{test-other}.
+All audio was resampled to 16kHz. Utterances were filtered to retain only those between 0.5 and 20 seconds in duration, removing overly short clips (insufficient context) and overly long clips (memory constraints).
+Evaluation was performed on four standard splits: \textit{dev-clean}, \textit{dev-other}, \textit{test-clean}, and \textit{test-other}.
 
 \subsubsection{Training Hyperparameters}
-Table~\ref{tab:hyperparams} summarizes the key hyperparameters for our 100-hour training configuration. We used the AdamW optimizer with a cosine learning rate scheduler, warming up over the first 500 steps before decaying along a cosine curve to zero. The effective batch size of 8 was achieved through gradient accumulation to accommodate 24GB VRAM constraints.
+Table~\ref{tab:hyperparams} summarizes the key hyperparameters for our 100-hour training configuration.
+We used the AdamW optimizer with a cosine learning rate scheduler, warming up over the first 500 steps before decaying along a cosine curve to zero.
+The effective batch size of 8 was achieved through gradient accumulation to accommodate 24GB VRAM constraints.
 
 \begin{table}[htbp]
 \caption{Training Hyperparameters (100h Configuration)}
@@ -147,17 +173,22 @@ We evaluated two decoding strategies:
 \subsubsection{Hyperparameter Search}
 To identify optimal configurations, we conducted two systematic grid searches:
 
-\textbf{Training Hyperparameters:} We explored 54 combinations over learning rate $\in \{5 \times 10^{-5}, 1 \times 10^{-4}, 2 \times 10^{-4}\}$, scheduler type $\in \{\text{linear}, \text{cosine}\}$, weight decay $\in \{0.0, 0.005, 0.01\}$, and warmup steps $\in \{200, 500, 1000\}$. Each configuration was evaluated on validation WER, with the best results achieved using the parameters in Table~\ref{tab:hyperparams}.
+\textbf{Training Hyperparameters:} We explored 54 combinations over learning rate $\in \{5 \times 10^{-5}, 1 \times 10^{-4}, 2 \times 10^{-4}\}$, scheduler type $\in \{\text{linear}, \text{cosine}\}$, weight decay $\in \{0.0, 0.005, 0.01\}$, and warmup steps $\in \{200, 500, 1000\}$.
+Each configuration was evaluated on validation WER, with the best results achieved using the parameters in Table~\ref{tab:hyperparams}.
 
-\textbf{LM Decoding Parameters:} We performed an exhaustive search over 48 combinations of beam width $\in \{50, 100, 200\}$, LM weight $\alpha \in \{0.3, 0.5, 0.7, 1.0\}$, and word insertion bonus $\beta \in \{0.5, 1.0, 1.5, 2.0\}$. The optimal configuration (beam width = 100, $\alpha = 0.5$, $\beta = 1.0$) yielded the best WER on \textit{test-clean}.
+\textbf{LM Decoding Parameters:} We performed an exhaustive search over 48 combinations of beam width $\in \{50, 100, 200\}$, LM weight $\alpha \in \{0.3, 0.5, 0.7, 1.0\}$, and word insertion bonus $\beta \in \{0.5, 1.0, 1.5, 2.0\}$.
+The optimal configuration (beam width = 100, $\alpha = 0.5$, $\beta = 1.0$) yielded the best WER on \textit{test-clean}.
 
 \subsubsection{Compute Infrastructure}
-Primary training runs utilized NVIDIA GPUs with FP16 mixed-precision via PyTorch's automatic mixed precision (AMP). Development and debugging were performed on Apple Silicon (MPS) with FP32 precision due to MPS stability constraints with mixed precision.
+Primary training runs utilized NVIDIA GPUs with FP16 mixed-precision via PyTorch's automatic mixed precision (AMP).
+Development and debugging were performed on Apple Silicon (MPS) with FP32 precision due to MPS stability constraints with mixed precision.
 
 \subsection{Implementation Challenges}
 While the base model was imported, the training pipelines, collators, and device mappings were engineered from scratch to address several non-trivial engineering challenges:
 \begin{itemize}
-    \item \textbf{Dynamic Padding \& CTC Masking:} Aligning variable-length speech with text requires dynamic batch padding. We engineered a custom \texttt{CTCDataCollator} that explicitly masks target padding tokens with an ignore-index. Without this step, the PyTorch CTC loss function erroneously computes gradients on artificial padding frames, leading to immediate training collapse.
+    \item \textbf{Dynamic Padding \& CTC Masking:} Aligning variable-length speech with text requires dynamic batch padding.
+    We engineered a custom \texttt{CTCDataCollator} that explicitly masks target padding tokens with an ignore-index.
+    Without this step, the PyTorch CTC loss function erroneously computes gradients on artificial padding frames, leading to immediate training collapse.
     \item \textbf{Ultra-Low-Resource Fine-Tuning Constraints:} In addition to the 100-hour and 10-hour splits, we attempted fine-tuning on the highly restricted 1-hour and 10-minute subsets.
     However, training on these extreme low-data regimes proved highly unstable, with performance exhibiting acute sensitivity to hyperparameter choices.
     Minor adjustments to learning rate, batch size, or scheduling strategy caused WER to fluctuate dramatically, ranging from near-total failure (100\%) to moderate performance ($\sim$50\%).
@@ -264,6 +295,9 @@ Furthermore, biased models deployed in critical scenarios (like automated custom
 \bibitem{hubert}
 W. N. Hsu, B. Bolte, Y. H. H. Tsai, K. Lakhotia, R. Salakhutdinov, and A. Mohamed, ``HuBERT: Self-supervised speech representation learning by masked prediction of hidden units,'' \textit{IEEE/ACM Transactions on Audio, Speech, and Language Processing}, vol. 29, pp. 3451--3460, 2021.
 
+\bibitem{hubert_visual}
+J. Bgn, ``HuBERT visually explained,'' Oct. 2021. [Online]. Available: https://jonathanbgn.com/2021/10/30/hubert-visually-explained.html
+
 \bibitem{wav2vec}
 A. Baevski, Y. Zhou, A. Mohamed, and M. Auli, ``wav2vec 2.0: A framework for self-supervised learning of speech representations,'' \textit{Advances in Neural Information Processing Systems}, vol. 33, pp. 12449--12460, 2020.
 
@@ -272,6 +306,9 @@ J. Devlin, M. W. Chang, K. Lee, and K. Toutanova, ``BERT: Pre-training of deep b
 
 \bibitem{ctc}
 A. Graves, S. Fern\'{a}ndez, F. Gomez, and J. Schmidhuber, ``Connectionist temporal classification: labelling unsegmented sequence data with recurrent neural networks,'' in \textit{Proceedings of the 23rd International Conference on Machine Learning}, 2006, pp. 369--376.
+
+\bibitem{ctc_distill}
+A. Hannun, ``Sequence modeling with ctc,'' \textit{Distill}, 2017. [Online]. Available: https://distill.pub/2017/ctc/
 
 \bibitem{librispeech}
 V. Panayotov, G. Chen, D. Povey, and S. Khudanpur, ``Librispeech: An ASR corpus based on public domain audio books,'' in \textit{IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 2015, pp. 5206--5210.
