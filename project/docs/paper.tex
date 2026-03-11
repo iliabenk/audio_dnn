@@ -8,7 +8,6 @@
 \usepackage{hyperref}
 \usepackage{graphicx}
 \usepackage{xcolor}
-  \usepackage[colorinlistoftodos]{todonotes}
 
 % --- Document Metadata ---
 \title{Reproducing HuBERT: Self-Supervised Speech Representation Learning and ASR Fine-Tuning}
@@ -31,7 +30,7 @@
 \begin{abstract}
 The development of Automatic Speech Recognition (ASR) systems traditionally required massive transcribed datasets and extensive manual feature engineering by domain experts. This paradigm has shifted significantly with the advent of self-supervised learning, which extracts robust acoustic representations directly from raw audio. 
 This project reproduces the supervised fine-tuning phase of the foundational HuBERT model.
-We fine-tuned the pre-trained \texttt{facebook/hubert-base-ls960} model on the 100-hour \todo[inline]{and the 10h dataset} LibriSpeech dataset using Connectionist Temporal Classification (CTC) loss.
+We fine-tuned the pre-trained \texttt{facebook/hubert-base-ls960} model on the 100-hour and 10-hour LibriSpeech datasets using Connectionist Temporal Classification (CTC) loss.
 By freezing the convolutional feature encoder to leverage pre-trained acoustic representations, our system successfully mapped raw audio to text transcriptions.
 Using Language Model-assisted decoding, our implementation achieved a Word Error Rate (WER) of 4.62\% on the \texttt{test-clean} split and 11.63\% on the \texttt{test-other} split.
 Although we did not perfectly match the original paper's benchmarks of 3.4\% and 8.1\% on these respective splits, we achieved comparable performance;
@@ -94,16 +93,16 @@ We calculated this using the \texttt{jiwer} package after normalizing the text (
 \subsection{Experimental Setup}
 
 \subsubsection{Dataset}
-We evaluated our pipeline on the LibriSpeech corpus \cite{librispeech}, using two training configurations:
+We evaluated our pipeline on the LibriSpeech corpus \cite{librispeech}, using multiple training configurations:
 \begin{itemize}
     \item \textbf{100-hour split} (\textit{train.clean.100}): The standard low-resource benchmark.
     \item \textbf{10-hour subset}: A further constrained subset to test data efficiency.
-    \item \todo[inline]{- Need to add something about the 1h and 10min. They were extremely unstable, where small parameter changes threw the training from 50-100\%. We lack the computational resources to conduct the hundreds of required HPO runs to find the stable parameters}
+    \item \textbf{1-hour and 10-minute subsets}: Attempted but proved highly unstable; minor hyperparameter changes caused WER to fluctuate between 50--100\%, making reliable reproduction infeasible within our compute budget.
 \end{itemize}
 All audio was resampled to 16kHz. Utterances were filtered to retain only those between 0.5 and 20 seconds in duration, removing overly short clips (insufficient context) and overly long clips (memory constraints). Evaluation was performed on four standard splits: \textit{dev-clean}, \textit{dev-other}, \textit{test-clean}, and \textit{test-other}.
 
 \subsubsection{Training Hyperparameters}
-Table~\ref{tab:hyperparams} summarizes the key hyperparameters for our 100-hour training configuration. We used the AdamW optimizer with a linear learning rate scheduler, warming up over the first 500 steps before linearly decaying \todo[inline]{Actually cosine} to zero. The effective batch size of 32 was achieved through gradient accumulation to accommodate 24GB VRAM constraints.
+Table~\ref{tab:hyperparams} summarizes the key hyperparameters for our 100-hour training configuration. We used the AdamW optimizer with a cosine learning rate scheduler, warming up over the first 500 steps before decaying along a cosine curve to zero. The effective batch size of 8 was achieved through gradient accumulation to accommodate 24GB VRAM constraints.
 
 \begin{table}[htbp]
 \caption{Training Hyperparameters (100h Configuration)}
@@ -114,16 +113,16 @@ Table~\ref{tab:hyperparams} summarizes the key hyperparameters for our 100-hour 
 \midrule
 \multicolumn{2}{l}{\textit{Optimization}} \\
 Optimizer & AdamW \\
-Learning rate & $3 \times 10^{-5}$ \todo[inline]{cosine}\\
-LR scheduler & Linear decay \\
+Learning rate & $3 \times 10^{-5}$ \\
+LR scheduler & Cosine decay \\
 Warmup steps & 500 \\
 Weight decay & 0.005 \\
-Epochs & 30 \todo[inline]{100}\\
+Epochs & 100 \\
 \midrule
 \multicolumn{2}{l}{\textit{Batching}} \\
-Batch size (per device) & 8 \todo[inline]{8 is too high, wouldn't work with 24GB. I would actually change to 2}\\
+Batch size (per device) & 2 \\
 Gradient accumulation & 4 \\
-Effective batch size & 32 \\
+Effective batch size & 8 \\
 \midrule
 \multicolumn{2}{l}{\textit{Regularization}} \\
 Attention dropout & 0.1 \\
@@ -133,7 +132,6 @@ Feature encoder & Frozen \\
 \midrule
 \multicolumn{2}{l}{\textit{Precision \& Reproducibility}} \\
 Mixed precision & FP16 (CUDA) \\
-Random seed & 42 \todo[inline]{irrelevant}\\
 \bottomrule
 \end{tabular}
 \label{tab:hyperparams}
@@ -160,12 +158,10 @@ Primary training runs utilized NVIDIA GPUs with FP16 mixed-precision via PyTorch
 While the base model was imported, the training pipelines, collators, and device mappings were engineered from scratch to address several non-trivial engineering challenges:
 \begin{itemize}
     \item \textbf{Dynamic Padding \& CTC Masking:} Aligning variable-length speech with text requires dynamic batch padding. We engineered a custom \texttt{CTCDataCollator} that explicitly masks target padding tokens with an ignore-index. Without this step, the PyTorch CTC loss function erroneously computes gradients on artificial padding frames, leading to immediate training collapse.
-    \item \textbf{Cross-Platform Device Management:} \todo[inline]{Obviously Gemini wrote it, I would remove it. Irrelevant detail} We required the codebase to execute locally on Apple Silicon (MPS) and remotely on CUDA architectures.
-    We implemented a custom \texttt{DeviceManager} to handle explicit MPS device mapping, avoiding conflicts with native PyTorch mixed-precision (\texttt{autocast}) systems.
     \item \textbf{Ultra-Low-Resource Fine-Tuning Constraints:} In addition to the 100-hour and 10-hour splits, we attempted fine-tuning on the highly restricted 1-hour and 10-minute subsets.
     However, training on these extreme low-data regimes proved highly unstable, with performance exhibiting acute sensitivity to hyperparameter choices.
     Minor adjustments to learning rate, batch size, or scheduling strategy caused WER to fluctuate dramatically, ranging from near-total failure (100\%) to moderate performance ($\sim$50\%).
-    This instability made it infeasible to reliably reproduce the original paper's results within our limited compute budget, as the extensive parameter sweeps required to identify stable configurations were beyond our available GPU hours. \todo[inline]{Rephrased it, read}
+    This instability made it infeasible to reliably reproduce the original paper's results within our limited compute budget, as the extensive parameter sweeps required to identify stable configurations were beyond our available GPU hours.
 \end{itemize}
 
 \section{Results \& Discussion}
