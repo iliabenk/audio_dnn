@@ -127,8 +127,8 @@ Evaluation was performed on four standard splits: \textit{dev-clean}, \textit{de
 
 \subsubsection{Training Hyperparameters}
 Table~\ref{tab:hyperparams} summarizes the key hyperparameters for our 100-hour training configuration.
-We used the AdamW optimizer with a cosine learning rate scheduler, warming up over the first 500 steps before decaying along a cosine curve to zero.
-The effective batch size of 8 was achieved through gradient accumulation to accommodate 24GB VRAM constraints.
+We used the AdamW optimizer with a cosine learning rate scheduler, warming up over the first 1000 steps before decaying along a cosine curve to zero.
+The effective batch size of 32 was achieved through gradient accumulation to accommodate 24GB VRAM constraints.
 
 \begin{table}[htbp]
 \caption{Training Hyperparameters (100h Configuration)}
@@ -139,16 +139,16 @@ The effective batch size of 8 was achieved through gradient accumulation to acco
 \midrule
 \multicolumn{2}{l}{\textit{Optimization}} \\
 Optimizer & AdamW \\
-Learning rate & $3 \times 10^{-5}$ \\
+Learning rate & $2 \times 10^{-4}$ \\
 LR scheduler & Cosine decay \\
-Warmup steps & 500 \\
+Warmup steps & 1000 \\
 Weight decay & 0.005 \\
 Epochs & 100 \\
 \midrule
 \multicolumn{2}{l}{\textit{Batching}} \\
 Batch size (per device) & 2 \\
-Gradient accumulation & 4 \\
-Effective batch size & 8 \\
+Gradient accumulation & 16 \\
+Effective batch size & 32 \\
 \midrule
 \multicolumn{2}{l}{\textit{Regularization}} \\
 Attention dropout & 0.1 \\
@@ -268,7 +268,7 @@ Given our constrained compute environment, achieving these results while fine-tu
 \end{figure}
 
 As shown in Figure~\ref{fig:loss} and Figure~\ref{fig:wer}, the model exhibited stable convergence.
-Following the initial 500-step linear warmup, the training loss decreased steadily.
+Following the initial 1000-step linear warmup, the training loss decreased steadily.
 Validation WER dropped aggressively in the early epochs before plateauing towards the end of training, indicating that the network efficiently mapped the frozen acoustic representations to the CTC head without severe overfitting.
 
 \section{Future Work}
