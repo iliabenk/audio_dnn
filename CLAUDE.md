@@ -10,7 +10,7 @@ HuBERT ASR fine-tuning system that reproduces results from the HuBERT paper. Fin
 
 ```bash
 # Setup (installs FFmpeg + Python deps)
-cd project && ./scripts/setup.sh
+cd project && ./scripts/setup/setup.sh
 
 # Training
 ./scripts/train_debug.sh                    # Quick test (1 epoch)

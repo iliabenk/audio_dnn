@@ -10,36 +10,50 @@ This project implements a modular system for fine-tuning the HuBERT (Hidden-Unit
 
 ```
 project/
-├── configs/                   # Configuration files
-│   ├── default.yaml          # Default 100h training
-│   ├── debug.yaml            # Quick debug config
-│   ├── libri-100h.yaml        # Optimized for large GPUs (24GB+)
-│   └── mac.yaml              # Optimized for Mac with MPS
-├── src/                      # Source code
-│   ├── train.py              # Training entry point
-│   ├── evaluate.py           # Evaluation entry point
-│   ├── transcribe.py         # Transcription entry point
-│   ├── config.py             # Configuration dataclasses
-│   ├── data/                 # Data loading modules
-│   │   ├── dataset.py        # LibriSpeech dataset
-│   │   └── collator.py       # CTC data collator
-│   ├── model/                # Model modules
-│   │   └── hubert_ctc.py     # HuBERT CTC wrapper
-│   ├── training/             # Training modules
-│   │   └── trainer.py        # HuggingFace Trainer setup
-│   ├── evaluation/           # Evaluation modules
-│   │   └── metrics.py        # WER computation
-│   └── utils/                # Utility modules
-│       └── device.py         # Device management
-├── scripts/                  # Bash scripts with predefined configs
-│   ├── setup.sh              # Setup script (installs FFmpeg + deps)
-│   ├── train_debug.sh        # Quick debug training
-│   ├── train_gpu.sh          # GPU training
-│   ├── train_mac.sh          # Mac training
-│   ├── evaluate.sh           # Evaluation wrapper
-│   └── transcribe.sh         # Transcription wrapper
-├── outputs/                  # Training outputs (gitignored)
-└── requirements.txt          # Dependencies
+├── configs/                        # Configuration files
+│   ├── default.yaml               # Default 100h training
+│   ├── debug.yaml                 # Quick debug config
+│   ├── libri-100h.yaml            # Optimized for large GPUs (24GB+)
+│   ├── librilight-10h.yaml        # Low-resource 10h training
+│   ├── librilight-1h.yaml         # Low-resource 1h training
+│   ├── librilight-10min.yaml      # Extreme low-resource 10min training
+│   └── mac.yaml                   # Optimized for Mac with MPS
+├── src/                           # Source code
+│   ├── train.py                   # Training entry point
+│   ├── evaluate.py                # Evaluation entry point
+│   ├── transcribe.py              # Transcription entry point
+│   ├── config.py                  # Configuration dataclasses
+│   ├── data/                      # Data loading modules
+│   │   ├── dataset.py             # LibriSpeech dataset
+│   │   └── collator.py            # CTC data collator
+│   ├── model/                     # Model modules
+│   │   └── hubert_ctc.py          # HuBERT CTC wrapper
+│   ├── training/                  # Training modules
+│   │   ├── trainer.py             # HuggingFace Trainer setup
+│   │   └── callbacks/             # Training callbacks
+│   │       └── bolt.py            # Bolt metric reporting
+│   ├── evaluation/                # Evaluation modules
+│   │   ├── metrics.py             # WER computation
+│   │   └── decoder.py             # CTC decoder (greedy + beam search with LM)
+│   └── utils/                     # Utility modules
+│       ├── device.py              # Device management
+│       ├── bolt.py                # Bolt integration utilities
+│       └── collect_bolt_metrics.py # Bolt metric collection
+├── scripts/                       # Bash scripts
+│   ├── train_debug.sh             # Quick debug training
+│   ├── train_gpu.sh               # Single GPU training
+│   ├── train_multi_gpu.sh         # Multi-GPU distributed training
+│   ├── train_mac.sh               # Mac training
+│   ├── train_librilight_10h.sh    # 10h low-resource training
+│   ├── train_librilight_1h.sh     # 1h low-resource training
+│   ├── train_librilight_10min.sh  # 10min low-resource training
+│   ├── train_librilight_all.sh    # Run all LibriLight configs
+│   ├── evaluate.sh                # Evaluation wrapper
+│   ├── transcribe.sh              # Transcription wrapper
+│   ├── tune_hparams.py            # Hyperparameter tuning script
+│   └── tune_lm_params.sh          # LM parameter tuning
+├── outputs/                       # Training outputs (gitignored)
+└── requirements.txt               # Dependencies
 ```
 
 ## Installation
@@ -48,7 +62,7 @@ project/
 
 ```bash
 cd project
-./scripts/setup.sh
+./scripts/setup/setup.sh
 ```
 
 This installs FFmpeg (required for audio decoding) and all Python dependencies.
@@ -137,7 +151,7 @@ Configuration is done via YAML files. Key parameters:
 |-----------|-------------|---------|
 | `model.name` | HuggingFace model name | `facebook/hubert-base-ls960` |
 | `model.freeze_feature_encoder` | Freeze CNN layers | `true` |
-| `dataset.train_split` | Training split | `train.100` |
+| `dataset.train_split` | Training split | `train.clean.100` |
 | `training.num_train_epochs` | Number of epochs | `30` |
 | `training.learning_rate` | Learning rate | `3e-5` |
 | `training.per_device_train_batch_size` | Batch size per device | varies by config |
@@ -145,8 +159,11 @@ Configuration is done via YAML files. Key parameters:
 
 ### Available Training Splits
 
-- `train.100` - 100 hours (train-clean-100)
-- `train.360` - 360 hours (train-clean-360)
+- `train.clean.100` - 100 hours (train-clean-100)
+- `train.clean.100[:10%]` - ~10 hours (LibriLight 10h subset)
+- `train.clean.100[:1%]` - ~1 hour (LibriLight 1h subset)
+- `train.clean.100[:50]` - ~10 minutes (LibriLight 10min subset)
+- `train.clean.360` - 360 hours (train-clean-360)
 - `train.other.500` - 500 hours (train-other-500)
 
 ## Results
@@ -197,7 +214,7 @@ device:
 
 - **Model**: HuBERT-Base (90M parameters)
 - **Loss**: Connectionist Temporal Classification (CTC)
-- **Decoding**: Greedy CTC decoding
+- **Decoding**: Greedy CTC or beam search with optional KenLM language model
 - **Metric**: Word Error Rate (WER)
 
 ### Training Strategy
