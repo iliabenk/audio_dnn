@@ -41,8 +41,8 @@ training:
   lr_min: 5.0e-6
   warmup_steps: 1000
   weight_decay: 0.005  # Strong regularization
-  fp16: false
-  bf16: true
+  fp16: true
+  bf16: false
   logging_steps: 100
   eval_steps: 500
   save_steps: 5000
