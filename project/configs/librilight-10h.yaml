@@ -32,7 +32,6 @@ audio:
 # Adjusted for smaller dataset: more epochs, careful regularization
 training:
   output_dir: "./project/outputs/hubert-librilight-10h"
-  bolt_metric_prefix: "librilight-10h"  # Prefix for Bolt metrics
   num_train_epochs: 800  # More epochs for smaller dataset
   per_device_train_batch_size: 16
   per_device_eval_batch_size: 16

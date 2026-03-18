@@ -1,22 +1,19 @@
 """HuggingFace Trainer setup for HuBERT ASR fine-tuning."""
 
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
 import torch
 from datasets import Dataset
 from transformers import (
     HubertForCTC,
     Trainer,
-    TrainerCallback,
     TrainingArguments,
     Wav2Vec2Processor,
 )
 
 from ..config import TrainingConfig
-from ..utils.bolt import get_artifact_dir, is_on_bolt
 from ..utils.device import DeviceManager
-from .callbacks import get_bolt_callback
 
 
 class ASRTrainerSetup:
@@ -81,12 +78,7 @@ class ASRTrainerSetup:
         # Determine device settings for TrainingArguments
         use_cpu = self.device.type == "cpu"
 
-        # Use ARTIFACT_DIR when on Bolt, otherwise use config output_dir
-        if is_on_bolt():
-            artifact_dir = get_artifact_dir()
-            output_dir = Path(artifact_dir) if artifact_dir else Path(self.config.output_dir)
-        else:
-            output_dir = Path(self.config.output_dir)
+        output_dir = Path(self.config.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Determine LR scheduler settings
@@ -147,12 +139,6 @@ class ASRTrainerSetup:
         training_args = self.get_training_args()
         data_collator = self.get_data_collator()
 
-        # Build callbacks list
-        callbacks: List[TrainerCallback] = []
-        bolt_callback = get_bolt_callback(metric_prefix=self.config.bolt_metric_prefix)
-        if bolt_callback is not None:
-            callbacks.append(bolt_callback)
-
         trainer = Trainer(
             model=self.model,
             args=training_args,
@@ -161,7 +147,6 @@ class ASRTrainerSetup:
             data_collator=data_collator,
             compute_metrics=self.compute_metrics,
             processing_class=self.processor.feature_extractor,
-            callbacks=callbacks if callbacks else None,
         )
 
         return trainer

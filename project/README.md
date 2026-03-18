@@ -31,14 +31,11 @@ project/
 │   ├── training/                  # Training modules
 │   │   ├── trainer.py             # HuggingFace Trainer setup
 │   │   └── callbacks/             # Training callbacks
-│   │       └── bolt.py            # Bolt metric reporting
 │   ├── evaluation/                # Evaluation modules
 │   │   ├── metrics.py             # WER computation
 │   │   └── decoder.py             # CTC decoder (greedy + beam search with LM)
 │   └── utils/                     # Utility modules
-│       ├── device.py              # Device management
-│       ├── bolt.py                # Bolt integration utilities
-│       └── collect_bolt_metrics.py # Bolt metric collection
+│       └── device.py              # Device management
 ├── scripts/                       # Bash scripts
 │   ├── train_debug.sh             # Quick debug training
 │   ├── train_gpu.sh               # Single GPU training
