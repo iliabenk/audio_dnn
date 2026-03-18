@@ -32,9 +32,9 @@ audio:
 training:
   output_dir: "./project/outputs/hubert-librilight-1h"
   num_train_epochs: 1000  # Many more epochs for tiny dataset
-  per_device_train_batch_size: 8  # Smaller batch for stability
-  per_device_eval_batch_size: 8
-  gradient_accumulation_steps: 2  # Effective batch of 32
+  per_device_train_batch_size: 2  # Smaller batch for stability
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 8  # Effective batch of 32
   learning_rate: 2.0e-5  # Lower LR to prevent overfitting
   lr_scheduler_type: "cosine"
   lr_min: 1.0e-6
